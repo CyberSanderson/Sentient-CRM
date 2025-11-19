@@ -10,78 +10,66 @@ import {
   LogOut,
   Eye
 } from 'lucide-react';
+// 1. Import Clerk Hooks
+import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
 import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
 import PipelineView from './views/PipelineView';
 import LandingPage from './views/LandingPage';
-import AuthModal from './components/AuthModal';
 import { View, Lead } from './types';
 import { MOCK_LEADS, APP_NAME } from './constants';
 
-const App: React.FC = () => {
-  // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+// 2. Get the key securely
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+if (!clerkPubKey) {
+  throw new Error("Missing Publishable Key. Add VITE_CLERK_PUBLISHABLE_KEY to your .env file");
+}
+
+// Inner Component (Where the logic lives)
+const SentientApp = () => {
+  // Clerk State
+  const { user, isSignedIn } = useUser();
+  const { signOut, openSignIn, openSignUp } = useClerk();
+  
   // App State
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
-  // Close mobile menu on view change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setIsDemoMode(false);
-    setCurrentView('dashboard');
-  };
-
-  const openLogin = () => {
-    setAuthMode('login');
-    setAuthModalOpen(true);
-  };
-
-  const openSignup = () => {
-    setAuthMode('signup');
-    setAuthModalOpen(true);
-  };
-
-  const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
-    setIsDemoMode(false);
-    setAuthModalOpen(false);
-  };
-
   const handleDemoAccess = () => {
-    setIsAuthenticated(true);
     setIsDemoMode(true);
-    setAuthModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    if (isDemoMode) {
+      setIsDemoMode(false);
+    } else {
+      signOut();
+    }
+    setCurrentView('dashboard');
   };
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard':
-        return <DashboardView leads={leads} />;
-      case 'pipeline':
-        return <PipelineView leads={leads} setLeads={setLeads} />;
-      case 'leads':
-        return <LeadsView leads={leads} setLeads={setLeads} />;
-      case 'settings':
-        return (
+      case 'dashboard': return <DashboardView leads={leads} />;
+      case 'pipeline': return <PipelineView leads={leads} setLeads={setLeads} />;
+      case 'leads': return <LeadsView leads={leads} setLeads={setLeads} />;
+      case 'settings': return (
           <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-fade-in">
             <Settings size={64} className="mb-4 opacity-20" />
             <p className="text-lg">Settings & Configuration coming soon.</p>
+            <p className="text-xs mt-2">User ID: {user?.id}</p>
           </div>
         );
-      default:
-        return <DashboardView leads={leads} />;
+      default: return <DashboardView leads={leads} />;
     }
   };
 
@@ -99,29 +87,21 @@ const App: React.FC = () => {
     </button>
   );
 
-  // If not authenticated, show Landing Page
-  if (!isAuthenticated) {
+  // 3. Show Landing Page if NOT signed in AND NOT in demo mode
+  if (!isSignedIn && !isDemoMode) {
     return (
-      <>
-        <LandingPage 
-          onLoginClick={openLogin} 
-          onSignupClick={openSignup} 
-          onDemoClick={handleDemoAccess}
-        />
-        <AuthModal 
-          isOpen={authModalOpen} 
-          onClose={() => setAuthModalOpen(false)} 
-          onLogin={handleAuthSuccess}
-          initialMode={authMode}
-        />
-      </>
+      <LandingPage 
+        onLoginClick={() => openSignIn()} 
+        onSignupClick={() => openSignUp()} 
+        onDemoClick={handleDemoAccess}
+      />
     );
   }
 
-  // Authenticated Dashboard Layout
+  // 4. Authenticated App UI
   return (
     <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* Sidebar (Desktop) */}
+      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-full shadow-sm z-10">
         <div 
           className="p-6 flex items-center gap-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
@@ -147,10 +127,12 @@ const App: React.FC = () => {
         <div className="p-4 border-t border-slate-100">
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-400 to-indigo-500 flex items-center justify-center text-xs font-bold text-white shadow-md">
-              {isDemoMode ? 'D' : 'JS'}
+              {isDemoMode ? 'D' : (user?.firstName ? user.firstName[0] : user?.emailAddresses[0].emailAddress[0].toUpperCase())}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{isDemoMode ? 'Demo User' : 'John Smith'}</p>
+              <p className="text-sm font-medium text-slate-900 truncate">
+                {isDemoMode ? 'Demo User' : (user?.fullName || user?.emailAddresses[0].emailAddress)}
+              </p>
               <p className="text-xs text-slate-500 truncate">{isDemoMode ? 'Viewer' : 'Admin'}</p>
             </div>
             <button onClick={handleLogout} title="Logout">
@@ -162,7 +144,6 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-50">
-        {/* Demo Banner */}
         {isDemoMode && (
           <div className="bg-indigo-50 text-indigo-700 text-xs font-medium py-1 px-4 text-center border-b border-indigo-100 flex items-center justify-center gap-2">
             <Eye size={14} />
@@ -171,7 +152,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white/80 backdrop-blur-md z-30 relative">
           <div 
             className="flex items-center gap-2 cursor-pointer"
@@ -187,7 +167,6 @@ const App: React.FC = () => {
           </button>
         </header>
 
-        {/* Mobile Menu Overlay */}
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-0 z-20 bg-white/95 backdrop-blur-sm pt-20 px-4 animate-fade-in">
             <nav className="space-y-2">
@@ -206,7 +185,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* View Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
           <div className="max-w-7xl mx-auto h-full pb-20 md:pb-0">
             {renderView()}
@@ -214,6 +192,15 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+// 5. Wrap the whole app in the Provider
+const App = () => {
+  return (
+    <ClerkProvider publishableKey={clerkPubKey}>
+      <SentientApp />
+    </ClerkProvider>
   );
 };
 
