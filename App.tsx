@@ -10,14 +10,16 @@ import {
   LogOut,
   Eye
 } from 'lucide-react';
-// 1. Import Clerk Hooks
 import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'; // New Imports
+import { db } from './lib/firebase'; // Import Database
+
 import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
 import PipelineView from './views/PipelineView';
 import LandingPage from './views/LandingPage';
 import { View, Lead } from './types';
-import { MOCK_LEADS, APP_NAME } from './constants';
+import { APP_NAME } from './constants';
 
 // 2. Get the key securely
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -36,7 +38,9 @@ const SentientApp = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
+  
+  // DATA STATE: Start empty, we will fill this from the DB
+  const [leads, setLeads] = useState<Lead[]>([]); 
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -44,8 +48,38 @@ const SentientApp = () => {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
+  // --- NEW: REAL-TIME DATABASE LISTENER ---
+  useEffect(() => {
+    // If we are in demo mode or not logged in, don't fetch real data
+    if (!user || isDemoMode) {
+      return;
+    }
+
+    // Query: "Give me all leads that belong to THIS user"
+    const q = query(
+      collection(db, "leads"),
+      where("userId", "==", user.id)
+      // Note: orderBy might require a Firebase Index later, keeping it simple for now
+    );
+
+    // This listens for changes in real-time
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const loadedLeads = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Lead[];
+      
+      setLeads(loadedLeads);
+    });
+
+    return () => unsubscribe();
+  }, [user, isDemoMode]);
+  // --- END NEW LOGIC ---
+
   const handleDemoAccess = () => {
     setIsDemoMode(true);
+    // In demo mode, we could load mock leads if we wanted, 
+    // but for now let's start fresh or keep the state logic simple.
   };
 
   const handleLogout = () => {
@@ -55,6 +89,7 @@ const SentientApp = () => {
       signOut();
     }
     setCurrentView('dashboard');
+    setLeads([]); // Clear data on logout
   };
 
   const renderView = () => {
@@ -87,7 +122,6 @@ const SentientApp = () => {
     </button>
   );
 
-  // 3. Show Landing Page if NOT signed in AND NOT in demo mode
   if (!isSignedIn && !isDemoMode) {
     return (
       <LandingPage 
@@ -98,10 +132,8 @@ const SentientApp = () => {
     );
   }
 
-  // 4. Authenticated App UI
   return (
     <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-full shadow-sm z-10">
         <div 
           className="p-6 flex items-center gap-3 border-b border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"
@@ -116,9 +148,9 @@ const SentientApp = () => {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
+          <NavItem view="dashboard" icon={Search} label="Research" />
           <NavItem view="pipeline" icon={Trello} label="Pipeline" />
-          <NavItem view="leads" icon={Users} label="Leads" />
+          <NavItem view="leads" icon={Users} label="Prospects" />
           <div className="pt-4 mt-4 border-t border-slate-100">
             <NavItem view="settings" icon={Settings} label="Settings" />
           </div>
@@ -170,9 +202,9 @@ const SentientApp = () => {
         {isMobileMenuOpen && (
           <div className="md:hidden fixed inset-0 z-20 bg-white/95 backdrop-blur-sm pt-20 px-4 animate-fade-in">
             <nav className="space-y-2">
-              <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
+              <NavItem view="dashboard" icon={Search} label="Research" />
               <NavItem view="pipeline" icon={Trello} label="Pipeline" />
-              <NavItem view="leads" icon={Users} label="Leads" />
+              <NavItem view="leads" icon={Users} label="Prospects" />
               <NavItem view="settings" icon={Settings} label="Settings" />
               <button 
                 onClick={handleLogout}
@@ -195,7 +227,7 @@ const SentientApp = () => {
   );
 };
 
-// 5. Wrap the whole app in the Provider
+// Wrap and Export
 const App = () => {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
@@ -203,5 +235,7 @@ const App = () => {
     </ClerkProvider>
   );
 };
+// Need Search Icon for the new menu item name
+import { Search } from 'lucide-react'; 
 
 export default App;
