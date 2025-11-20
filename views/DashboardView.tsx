@@ -1,173 +1,207 @@
 import React, { useState } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid 
-} from 'recharts';
-import { DollarSign, Users, Activity, Zap, Sparkles } from 'lucide-react';
-import StatCard from '../components/StatCard';
-import AIModal from '../components/AIModal';
-import { Lead, LeadStage } from '../types';
-import { generateDailyBriefing } from '../services/geminiService';
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, MessageSquare } from 'lucide-react';
+import { Lead } from '../types';
+
+// Define the shape of our AI response
+interface Dossier {
+  personality: string;
+  painPoints: string[];
+  iceBreakers: string[];
+  emailDraft: string;
+}
 
 interface DashboardViewProps {
   leads: Lead[];
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [aiContent, setAiContent] = useState('');
+  // Input State
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [role, setRole] = useState('');
+  
+  // AI State
+  const [loading, setLoading] = useState(false);
+  const [dossier, setDossier] = useState<Dossier | null>(null);
 
-  // Calculated Metrics
-  const totalValue = leads.reduce((sum, lead) => sum + lead.value, 0);
-  const activeLeads = leads.filter(l => l.stage !== LeadStage.CLOSED_LOST && l.stage !== LeadStage.CLOSED_WON).length;
-  const wonLeads = leads.filter(l => l.stage === LeadStage.CLOSED_WON).length;
-  const conversionRate = leads.length > 0 ? ((wonLeads / leads.length) * 100).toFixed(1) : 0;
+  const handleAnalyze = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setDossier(null);
 
-  // Chart Data Preparation
-  const leadsByStage = Object.values(LeadStage).map(stage => ({
-    name: stage.split(' ')[0], // Shorten name
-    count: leads.filter(l => l.stage === stage).length
-  }));
+    try {
+      // Call our new Backend API
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospectName: name, company, role }),
+      });
 
-  // Mock Trend Data for Area Chart
-  const trendData = [
-    { month: 'Jan', value: 12000 },
-    { month: 'Feb', value: 19000 },
-    { month: 'Mar', value: 15000 },
-    { month: 'Apr', value: 22000 },
-    { month: 'May', value: 28000 },
-    { month: 'Jun', value: 35000 },
-  ];
-
-  const handleGenerateBriefing = async () => {
-    setModalOpen(true);
-    setIsGenerating(true);
-    setAiContent('');
-    
-    const result = await generateDailyBriefing(leads);
-    setAiContent(result);
-    setIsGenerating(false);
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      
+      setDossier(data);
+    } catch (error) {
+      console.error("Analysis failed", error);
+      alert("Failed to analyze. Make sure your API keys are set!");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard Overview</h1>
-          <p className="text-slate-500 mt-1">Real-time insights into your sales performance.</p>
-        </div>
-        <button 
-          onClick={handleGenerateBriefing}
-          className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl font-medium shadow-lg shadow-brand-500/25 transition-all hover:scale-105 active:scale-95"
-        >
-          <Sparkles size={18} className="group-hover:animate-spin-slow" />
-          <span>AI Daily Briefing</span>
-        </button>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
+        <p className="text-slate-500 mt-2">Stop guessing. Generate a psychological dossier on any prospect in seconds.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          label="Pipeline Value" 
-          value={`$${totalValue.toLocaleString()}`} 
-          icon={DollarSign} 
-          trend={12.5} 
-          trendDirection="up"
-          color="text-emerald-600"
-          bgColor="bg-emerald-50"
-        />
-        <StatCard 
-          label="Active Leads" 
-          value={activeLeads} 
-          icon={Users} 
-          trend={5.2} 
-          trendDirection="up"
-          color="text-blue-600"
-          bgColor="bg-blue-50"
-        />
-        <StatCard 
-          label="Conversion Rate" 
-          value={`${conversionRate}%`} 
-          icon={Activity} 
-          trend={2.1} 
-          trendDirection="down"
-          color="text-orange-600"
-          bgColor="bg-orange-50"
-        />
-        <StatCard 
-          label="Avg Deal Size" 
-          value={`$${(totalValue / (leads.length || 1)).toLocaleString(undefined, {maximumFractionDigits: 0})}`} 
-          icon={Zap} 
-          trend={0} 
-          trendDirection="neutral"
-          color="text-purple-600"
-          bgColor="bg-purple-50"
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Leads by Stage Chart */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-            <div className="w-2 h-6 bg-brand-500 rounded-full"></div>
-            Lead Distribution
-          </h3>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={leadsByStage}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', color: '#0f172a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#4f46e5' }}
-                />
-                <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Left Column: The Input Form */}
+        <div className="lg:col-span-1">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Search size={20} className="text-brand-500" />
+              Target Profile
+            </h2>
+            
+            <form onSubmit={handleAnalyze} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Prospect Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    placeholder="e.g. Elon Musk"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    placeholder="e.g. Tesla"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Role / Title</label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    placeholder="e.g. CEO"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
+                {loading ? 'Analyzing...' : 'Generate Dossier'}
+              </button>
+            </form>
           </div>
         </div>
 
-        {/* Revenue Trend Chart */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-           <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-            <div className="w-2 h-6 bg-emerald-500 rounded-full"></div>
-            Revenue Projection
-          </h3>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="month" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value / 1000}k`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', color: '#0f172a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#10b981' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* Right Column: The Results */}
+        <div className="lg:col-span-2">
+          {!dossier && !loading && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
+              <BrainCircuit size={64} className="mb-4 opacity-20" />
+              <p>Enter a prospect details to generate insights</p>
+            </div>
+          )}
 
+          {loading && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
+              <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
+              <p className="font-medium">Consulting the AI oracle...</p>
+              <p className="text-sm opacity-70">Analyzing psychological drivers...</p>
+            </div>
+          )}
+
+          {dossier && (
+            <div className="space-y-6 animate-fade-in-up">
+              {/* Personality Card */}
+              <div className="bg-white p-6 rounded-2xl border-l-4 border-purple-500 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <BrainCircuit className="text-purple-500" size={24} />
+                  Psychological Profile
+                </h3>
+                <p className="text-slate-600 leading-relaxed">{dossier.personality}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Pain Points */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold text-red-600 mb-4">Likely Pain Points</h3>
+                  <ul className="space-y-3">
+                    {dossier.painPoints.map((point, i) => (
+                      <li key={i} className="flex items-start gap-3 text-slate-600 text-sm">
+                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 text-xs font-bold">{i+1}</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Ice Breakers */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold text-emerald-600 mb-4">Ice Breakers</h3>
+                  <ul className="space-y-3">
+                    {dossier.iceBreakers.map((point, i) => (
+                      <li key={i} className="flex items-start gap-3 text-slate-600 text-sm">
+                        <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold">{i+1}</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Email Draft */}
+              <div className="bg-slate-900 text-slate-300 p-6 rounded-2xl shadow-lg">
+                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Send className="text-brand-400" size={20} />
+                    Generated Draft
+                  </h3>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(dossier.emailDraft)}
+                    className="text-xs font-medium bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Copy to Clipboard
+                  </button>
+                </div>
+                <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                  {dossier.emailDraft}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-
-      <AIModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        title="AI Daily Briefing" 
-        content={aiContent} 
-        isLoading={isGenerating} 
-      />
     </div>
   );
 };
