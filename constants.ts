@@ -1,127 +1,68 @@
-import { Lead, LeadStage } from './types';
-import { LayoutDashboard, Trello, Users, Settings, Briefcase, DollarSign, TrendingUp, Activity, Check, Star, Mail, MessageSquare, Video, Calendar } from 'lucide-react';
+import { Lead } from './types';
+import { Mail, MessageSquare, Calendar, Trello, Slack, Github, Database } from 'lucide-react';
 
-export const APP_NAME = "Sentient CRM";
+export const APP_NAME = 'Sentient';
 
 export const MOCK_LEADS: Lead[] = [
   {
     id: '1',
-    name: 'Sarah Connor',
-    company: 'Skynet Cyberdyne',
-    email: 's.connor@techfuture.com',
-    phone: '+1 (555) 010-2233',
-    value: 45000,
-    stage: LeadStage.NEGOTIATION,
-    lastContact: '2023-10-24T10:00:00Z',
-    source: 'LinkedIn',
-    notes: 'Interested in the enterprise security package. Concerned about AI integration timelines.',
-    aiScore: 85,
+    name: 'Sarah Chen',
+    company: 'TechFlow Solutions',
+    role: 'CTO',
+    status: 'New',
+    value: 12000,
+    createdAt: new Date().toISOString(),
+    dossier: {
+      personality: 'Analytical and value-driven. Focuses on ROI and scalability.',
+      painPoints: ['Legacy infrastructure', 'Slow deployment cycles', 'High cloud costs'],
+      iceBreakers: ['Saw your talk at TechCrunch Disrupt', 'Congratulate on the Series B round'],
+      emailDraft: 'Hi Sarah, saw your recent scaling challenges mentioned in TechCrunch. We helped a similar Series B co cut deployment time by 40%...'
+    }
   },
   {
     id: '2',
-    name: 'John Anderson',
-    company: 'MetaCortex',
-    email: 'neo@metacortex.com',
-    phone: '+1 (555) 019-4455',
-    value: 12000,
-    stage: LeadStage.NEW,
-    lastContact: '2023-10-26T09:30:00Z',
-    source: 'Web Form',
-    notes: 'Looking for software development services.',
+    name: 'Michael Ross',
+    company: 'Apex Logistics',
+    role: 'VP of Operations',
+    status: 'Contacted',
+    value: 45000,
+    createdAt: new Date().toISOString()
   },
   {
     id: '3',
-    name: 'Eldon Tyrell',
-    company: 'Tyrell Corp',
-    email: 'ceo@tyrell.com',
-    phone: '+1 (555) 012-3456',
-    value: 150000,
-    stage: LeadStage.PROPOSAL,
-    lastContact: '2023-10-20T14:15:00Z',
-    source: 'Referral',
-    notes: 'Needs high-end bio-engineering consultation.',
-    aiScore: 92,
-  },
-  {
-    id: '4',
-    name: 'Roy Batty',
-    company: 'Off-World Colonies',
-    email: 'roy@nexus6.com',
-    phone: '+1 (555) 999-8888',
-    value: 8500,
-    stage: LeadStage.CLOSED_LOST,
-    lastContact: '2023-09-15T11:00:00Z',
-    source: 'Cold Call',
-    notes: 'Budget constraints. Not a good fit right now.',
-  },
-  {
-    id: '5',
-    name: 'Rick Deckard',
-    company: 'LAPD Contractors',
-    email: 'deckard@bladerunner.org',
-    phone: '+1 (555) 222-1111',
-    value: 25000,
-    stage: LeadStage.CLOSED_WON,
-    lastContact: '2023-10-01T16:45:00Z',
-    source: 'Networking Event',
-    notes: 'Signed for the investigative tools suite.',
-  },
-  {
-    id: '6',
-    name: 'Ellen Ripley',
-    company: 'Weyland-Yutani',
-    email: 'ripley@nostromo.com',
-    phone: '+1 (555) 444-5555',
-    value: 75000,
-    stage: LeadStage.MEETING,
-    lastContact: '2023-10-25T13:20:00Z',
-    source: 'Inbound',
-    notes: 'Urgent need for hazard management systems.',
+    name: 'Elena Rodriguez',
+    company: 'GreenEarth Energy',
+    role: 'Director of Sustainability',
+    status: 'Proposal Sent',
+    value: 85000,
+    createdAt: new Date().toISOString()
   }
 ];
-
-export const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-  { id: 'pipeline', label: 'Pipeline', icon: Trello },
-  { id: 'leads', label: 'Leads Database', icon: Users },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
-
-// Light Mode Friendly Colors
-export const STAGE_COLORS: Record<LeadStage, string> = {
-  [LeadStage.NEW]: 'bg-blue-50 text-blue-700 border-blue-200',
-  [LeadStage.CONTACTED]: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  [LeadStage.MEETING]: 'bg-purple-50 text-purple-700 border-purple-200',
-  [LeadStage.PROPOSAL]: 'bg-amber-50 text-amber-700 border-amber-200', 
-  [LeadStage.NEGOTIATION]: 'bg-orange-50 text-orange-700 border-orange-200',
-  [LeadStage.CLOSED_WON]: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  [LeadStage.CLOSED_LOST]: 'bg-red-50 text-red-700 border-red-200',
-};
 
 export const TESTIMONIALS = [
   {
     id: 1,
-    name: "Elena Fisher",
-    role: "VP of Sales, TechGlobe",
-    content: "Sentient CRM's AI scoring predicted our Q4 whale client before we even had a meeting. It's not just a tool; it's a crystal ball.",
+    name: "Alex Rivera",
+    role: "VP of Sales, TechStart",
+    content: "Sentient cut my research time by 90%. I used to spend hours on LinkedIn; now I just click a button and get the perfect opening line.",
     stars: 5,
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150"
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100"
   },
   {
     id: 2,
-    name: "Marcus Holloway",
-    role: "Account Executive, DedSec Systems",
-    content: "The automated email drafting saves me about 2 hours every single morning. The personalization is scary good.",
+    name: "Sarah Jenkins",
+    role: "Account Executive, CloudScale",
+    content: "The psychological profiling is scary good. It told me a prospect was 'risk-averse,' so I changed my pitch to focus on security. Closed the deal in a week.",
     stars: 5,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150"
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100"
   },
   {
     id: 3,
-    name: "Tifa Lockhart",
-    role: "Founder, 7th Heaven Analytics",
-    content: "Finally, a CRM that works as hard as I do. The mobile experience is flawless for closing deals on the go.",
-    stars: 4,
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150&h=150"
+    name: "Marcus Chen",
+    role: "Founder, GrowthBox",
+    content: "Finally, a CRM that actually helps me sell instead of just forcing me to do data entry. The AI integration is seamless.",
+    stars: 5,
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100"
   }
 ];
 
@@ -129,38 +70,72 @@ export const PRICING_TIERS = [
   {
     name: "Starter",
     price: "$0",
-    description: "Perfect for solo consultants and freelancers.",
-    features: ["Up to 100 Leads", "Basic Pipeline Board", "Mobile App Access", "Email Support"],
-    recommended: false,
-    cta: "Start for Free"
+    period: "/mo",
+    description: "Perfect for trying out the AI capabilities.",
+    features: [
+      "5 AI Dossiers per month",
+      "Basic Lead Management",
+      "Email Support",
+      "1 User Account"
+    ],
+    cta: "Start for Free",
+    recommended: false
   },
   {
-    name: "Growth",
+    name: "Pro",
     price: "$49",
     period: "/mo",
-    description: "Power up your small team with AI intelligence.",
-    features: ["Unlimited Leads", "AI Lead Scoring (500/mo)", "AI Email Drafting", "Advanced Analytics"],
-    recommended: true,
-    cta: "Start 14-Day Trial"
+    description: "For sales professionals who mean business.",
+    features: [
+      "Unlimited AI Dossiers",
+      "Advanced Psychology Insights",
+      "Email & LinkedIn Drafts",
+      "Priority Support",
+      "Up to 5 User Accounts"
+    ],
+    cta: "Start 14-Day Trial",
+    recommended: true
   },
   {
     name: "Enterprise",
-    price: "$199",
-    period: "/mo",
-    description: "Maximum performance for scaling organizations.",
-    features: ["Unlimited AI Credits", "Custom Integrations", "Dedicated Account Manager", "API Access"],
-    recommended: false,
-    cta: "Contact Sales"
+    price: "Custom",
+    period: "",
+    description: "Custom solutions for large sales teams.",
+    features: [
+      "Custom AI Model Training",
+      "API Access",
+      "Dedicated Success Manager",
+      "SSO & Advanced Security",
+      "Unlimited Users"
+    ],
+    cta: "Contact Sales",
+    recommended: false
   }
 ];
 
 export const TRUSTED_COMPANIES = [
-  "Nexus Corp", "Cyberdyne Systems", "Massive Dynamic", "Hooli", "Initech", "Soylent Corp"
+  "Acme Corp", "GlobalTech", "Nebula", "Trio", "FoxRun"
 ];
 
 export const INTEGRATIONS = [
-  { name: "Gmail", icon: Mail, desc: "Auto-sync emails & contacts" },
-  { name: "Slack", icon: MessageSquare, desc: "Real-time deal alerts" },
-  { name: "Zoom", icon: Video, desc: "Meeting transcription" },
-  { name: "Calendar", icon: Calendar, desc: "Smart scheduling" }
+  {
+    name: "Gmail",
+    desc: "Sync emails automatically.",
+    icon: Mail
+  },
+  {
+    name: "Slack",
+    desc: "Get alerts on new leads.",
+    icon: Slack
+  },
+  {
+    name: "Google Calendar",
+    desc: "Schedule meetings instantly.",
+    icon: Calendar
+  },
+  {
+    name: "Trello",
+    desc: "Sync your pipeline board.",
+    icon: Trello
+  }
 ];
