@@ -1,36 +1,34 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, MessageSquare } from 'lucide-react';
-import { Lead } from '../types';
-
-// Define the shape of our AI response
-interface Dossier {
-  personality: string;
-  painPoints: string[];
-  iceBreakers: string[];
-  emailDraft: string;
-}
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle } from 'lucide-react';
+import { collection, addDoc } from 'firebase/firestore'; 
+import { db } from '../lib/firebase'; 
+import { Lead, Dossier } from '../types'; 
+import { useUser } from '@clerk/clerk-react'; 
 
 interface DashboardViewProps {
   leads: Lead[];
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
-  // Input State
+  const { user } = useUser(); 
+  
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   
-  // AI State
   const [loading, setLoading] = useState(false);
   const [dossier, setDossier] = useState<Dossier | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setDossier(null);
+    setSaved(false);
 
     try {
-      // Call our new Backend API
+      // SECURE: Calls the Vercel Backend (api/analyze.ts)
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,27 +39,52 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       if (data.error) throw new Error(data.error);
       
       setDossier(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed", error);
-      alert("Failed to analyze. Make sure your API keys are set!");
+      alert(`Analysis failed: ${error.message || "Check API Keys"}. Note: If running locally, this requires 'vercel dev' to work correctly.`);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSaveLead = async () => {
+    if (!dossier || !user) return;
+    setSaving(true);
+
+    try {
+      await addDoc(collection(db, 'leads'), {
+        userId: user.id, 
+        name,
+        company,
+        role,
+        status: 'New',
+        value: 0, 
+        dossier: dossier, 
+        createdAt: new Date().toISOString()
+      });
+      
+      setSaved(true);
+    } catch (error) {
+      console.error("Error saving lead:", error);
+      alert("Failed to save. Check console for Firebase permission errors.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
-        <p className="text-slate-500 mt-2">Stop guessing. Generate a psychological dossier on any prospect in seconds.</p>
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
+          <p className="text-slate-500 mt-2">Generate a psychological dossier on any prospect.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: The Input Form */}
+        {/* Left Column: Input Form */}
         <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Search size={20} className="text-brand-500" />
               Target Profile
@@ -124,7 +147,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
           </div>
         </div>
 
-        {/* Right Column: The Results */}
+        {/* Right Column: Results & Save Button */}
         <div className="lg:col-span-2">
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
@@ -143,7 +166,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
 
           {dossier && (
             <div className="space-y-6 animate-fade-in-up">
-              {/* Personality Card */}
+              
+              {/* === SAVE BUTTON SECTION === */}
+              <div className="flex justify-end">
+                <button 
+                  onClick={handleSaveLead}
+                  disabled={saving || saved}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-md transition-all ${
+                    saved 
+                      ? 'bg-green-100 text-green-700 border border-green-200' 
+                      : 'bg-white text-slate-900 hover:bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  {saving ? <Loader2 className="animate-spin" size={20} /> : (saved ? <CheckCircle size={20} /> : <Save size={20} />)}
+                  {saved ? 'Saved to Leads' : 'Save Lead'}
+                </button>
+              </div>
+
               <div className="bg-white p-6 rounded-2xl border-l-4 border-purple-500 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
                   <BrainCircuit className="text-purple-500" size={24} />
@@ -153,7 +192,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Pain Points */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <h3 className="text-lg font-bold text-red-600 mb-4">Likely Pain Points</h3>
                   <ul className="space-y-3">
@@ -166,7 +204,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
                   </ul>
                 </div>
 
-                {/* Ice Breakers */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <h3 className="text-lg font-bold text-emerald-600 mb-4">Ice Breakers</h3>
                   <ul className="space-y-3">
@@ -180,7 +217,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
                 </div>
               </div>
 
-              {/* Email Draft */}
               <div className="bg-slate-900 text-slate-300 p-6 rounded-2xl shadow-lg">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-4">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">

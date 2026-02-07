@@ -3,8 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Sentient Sales CRM</title>
     
+    <!-- Primary Meta Tags -->
+    <title>Sentient | AI Sales Research & Dossiers</title>
+    <meta name="title" content="Sentient | AI Sales Research & Dossiers" />
+    <meta name="description" content="Stop guessing. Generate psychological dossiers and cold email strategies for any prospect in seconds using AI." />
+
+    <!-- Open Graph / Facebook / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sentient-crm.vercel.app/" />
+    <meta property="og:title" content="Sentient | AI Sales Research & Dossiers" />
+    <meta property="og:description" content="Stop guessing. Generate psychological dossiers and cold email strategies for any prospect in seconds using AI." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://sentient-crm.vercel.app/" />
+    <meta property="twitter:title" content="Sentient | AI Sales Research & Dossiers" />
+    <meta property="twitter:description" content="Stop guessing. Generate psychological dossiers and cold email strategies for any prospect in seconds using AI." />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+
     <!-- Tailwind CSS (Styling) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -25,13 +46,14 @@
                 900: '#0f172a',
                 950: '#020617',
               },
+              // NEW GREEN THEME (Emerald)
               brand: {
-                50: '#eef2ff',
-                100: '#e0e7ff',
-                400: '#818cf8',
-                500: '#6366f1',
-                600: '#4f46e5',
-                700: '#4338ca',
+                50: '#ecfdf5',  // Very light mint (backgrounds)
+                100: '#d1fae5', // Light green
+                400: '#34d399', // Bright green (accents)
+                500: '#10b981', // PRIMARY GREEN (Buttons, Icons)
+                600: '#059669', // Darker green (Hover states)
+                700: '#047857', // Deep green (Text)
               }
             }
           },
@@ -50,7 +72,7 @@
   <body class="bg-slate-50 text-slate-900 antialiased overflow-hidden selection:bg-brand-500 selection:text-white">
     <div id="root"></div>
     
-    <!-- THIS WAS MISSING: The "Ignition Key" that starts your React app -->
+    <!-- The Ignition Key -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

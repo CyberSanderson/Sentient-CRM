@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 export enum LeadStage {
   NEW = 'New',
   CONTACTED = 'Contacted',
@@ -9,6 +11,8 @@ export enum LeadStage {
 }
 
 export interface Lead {
+  dossier: any;
+  role: ReactNode;
   id: string;
   name: string;
   company: string;
