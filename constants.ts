@@ -1,44 +1,19 @@
-import { Lead } from './types';
-import { Mail, MessageSquare, Calendar, Trello, Slack, Github, Database } from 'lucide-react';
+import { Mail, Calendar, Trello, Slack } from 'lucide-react';
 
 export const APP_NAME = 'Sentient';
 
-export const MOCK_LEADS: Lead[] = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    company: 'TechFlow Solutions',
-    role: 'CTO',
-    status: 'New',
-    value: 12000,
-    createdAt: new Date().toISOString(),
-    dossier: {
-      personality: 'Analytical and value-driven. Focuses on ROI and scalability.',
-      painPoints: ['Legacy infrastructure', 'Slow deployment cycles', 'High cloud costs'],
-      iceBreakers: ['Saw your talk at TechCrunch Disrupt', 'Congratulate on the Series B round'],
-      emailDraft: 'Hi Sarah, saw your recent scaling challenges mentioned in TechCrunch. We helped a similar Series B co cut deployment time by 40%...'
-    }
-  },
-  {
-    id: '2',
-    name: 'Michael Ross',
-    company: 'Apex Logistics',
-    role: 'VP of Operations',
-    status: 'Contacted',
-    value: 45000,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Elena Rodriguez',
-    company: 'GreenEarth Energy',
-    role: 'Director of Sustainability',
-    status: 'Proposal Sent',
-    value: 85000,
-    createdAt: new Date().toISOString()
-  }
-];
+// --- CRM Constants (Fixes your build error) ---
+export const STAGE_COLORS: Record<string, string> = {
+  'New': 'bg-blue-500 text-white',
+  'Contacted': 'bg-indigo-500 text-white',
+  'Meeting Scheduled': 'bg-purple-500 text-white',
+  'Proposal Sent': 'bg-amber-500 text-white',
+  'Negotiation': 'bg-orange-500 text-white',
+  'Closed Won': 'bg-emerald-500 text-white',
+  'Closed Lost': 'bg-slate-500 text-white'
+};
 
+// --- Landing Page Constants ---
 export const TESTIMONIALS = [
   {
     id: 1,
