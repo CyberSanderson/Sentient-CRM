@@ -8,27 +8,30 @@ import {
   X, 
   Bot,
   LogOut,
-  Eye
+  Eye,
+  Search // Added Search icon import
 } from 'lucide-react';
 import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'; // New Imports
-import { db } from './lib/firebase'; // Import Database
+import { collection, query, where, onSnapshot } from 'firebase/firestore'; 
+import { db } from './lib/firebase'; 
 
+// --- VIEWS ---
 import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
-import PipelineView from './views/PipelineView';
+// ⚠️ UPDATED: Importing your new Kanban Board from components
+import PipelineView from './views/PipelineView'; 
 import LandingPage from './views/LandingPage';
-import { View, Lead } from './types';
+
+import { View, Lead, LeadStage } from './types';
 import { APP_NAME } from './constants';
 
-// 2. Get the key securely
+// Get the key securely
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!clerkPubKey) {
   throw new Error("Missing Publishable Key. Add VITE_CLERK_PUBLISHABLE_KEY to your .env file");
 }
 
-// Inner Component (Where the logic lives)
 const SentientApp = () => {
   // Clerk State
   const { user, isSignedIn } = useUser();
@@ -39,7 +42,7 @@ const SentientApp = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // DATA STATE: Start empty, we will fill this from the DB
+  // DATA STATE
   const [leads, setLeads] = useState<Lead[]>([]); 
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -48,55 +51,62 @@ const SentientApp = () => {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
-  // --- NEW: REAL-TIME DATABASE LISTENER ---
+  // --- REAL-TIME DATABASE LISTENER ---
   useEffect(() => {
-    // If we are in demo mode or not logged in, don't fetch real data
-    if (!user || isDemoMode) {
-      return;
-    }
+    if (!user || isDemoMode) return;
 
-    // Query: "Give me all leads that belong to THIS user"
+    // Listen for leads belonging to this user
     const q = query(
       collection(db, "leads"),
       where("userId", "==", user.id)
-      // Note: orderBy might require a Firebase Index later, keeping it simple for now
     );
 
-    // This listens for changes in real-time
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedLeads = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Lead[];
+      // 🛡️ DATA SANITIZATION: Prevents the Kanban from crashing
+      const loadedLeads = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          // Defaults for missing fields
+          company: data.company || "Unknown Company",
+          name: data.contactName || "Unknown Contact",
+          stage: (data.status as LeadStage) || "New", // Default to "New"
+          value: data.value || 0,
+          lastContact: data.createdAt ? data.createdAt.toDate() : new Date(),
+          aiScore: data.aiScore || 50,
+          email: data.email || "",
+          role: data.role || "",
+          ...data // Overwrite with real data if it exists
+        };
+      }) as Lead[];
       
       setLeads(loadedLeads);
     });
 
     return () => unsubscribe();
   }, [user, isDemoMode]);
-  // --- END NEW LOGIC ---
 
   const handleDemoAccess = () => {
     setIsDemoMode(true);
-    // In demo mode, we could load mock leads if we wanted, 
-    // but for now let's start fresh or keep the state logic simple.
   };
 
   const handleLogout = () => {
-    if (isDemoMode) {
-      setIsDemoMode(false);
-    } else {
-      signOut();
-    }
+    setIsDemoMode(false);
+    if (!isDemoMode) signOut();
     setCurrentView('dashboard');
-    setLeads([]); // Clear data on logout
+    setLeads([]);
   };
 
+  // --- VIEW ROUTER ---
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <DashboardView leads={leads} />;
+      
+      // 🟢 The "Pipeline" tab now loads your Kanban Board
       case 'pipeline': return <PipelineView leads={leads} setLeads={setLeads} />;
+      
       case 'leads': return <LeadsView leads={leads} setLeads={setLeads} />;
+      
       case 'settings': return (
           <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-fade-in">
             <Settings size={64} className="mb-4 opacity-20" />
@@ -165,7 +175,6 @@ const SentientApp = () => {
               <p className="text-sm font-medium text-slate-900 truncate">
                 {isDemoMode ? 'Demo User' : (user?.fullName || user?.emailAddresses[0].emailAddress)}
               </p>
-              <p className="text-xs text-slate-500 truncate">{isDemoMode ? 'Viewer' : 'Admin'}</p>
             </div>
             <button onClick={handleLogout} title="Logout">
               <LogOut size={16} className="text-slate-400 hover:text-red-500 cursor-pointer transition-colors" />
@@ -174,7 +183,6 @@ const SentientApp = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-50">
         {isDemoMode && (
           <div className="bg-indigo-50 text-indigo-700 text-xs font-medium py-1 px-4 text-center border-b border-indigo-100 flex items-center justify-center gap-2">
@@ -185,10 +193,7 @@ const SentientApp = () => {
         )}
 
         <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white/80 backdrop-blur-md z-30 relative">
-          <div 
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => setCurrentView('dashboard')}
-          >
+          <div className="flex items-center gap-2" onClick={() => setCurrentView('dashboard')}>
              <div className="bg-gradient-to-br from-brand-400 to-brand-600 p-1.5 rounded-lg shadow-md">
                 <Bot className="text-white" size={20} />
               </div>
@@ -227,7 +232,6 @@ const SentientApp = () => {
   );
 };
 
-// Wrap and Export
 const App = () => {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
@@ -235,9 +239,5 @@ const App = () => {
     </ClerkProvider>
   );
 };
-
-  // --- NEW: for firebase ---
-// Need Search Icon for the new menu item name
-import { Search } from 'lucide-react'; 
 
 export default App;
