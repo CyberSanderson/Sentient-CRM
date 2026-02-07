@@ -235,6 +235,8 @@ const App = () => {
     </ClerkProvider>
   );
 };
+
+  // --- NEW: for firebase ---
 // Need Search Icon for the new menu item name
 import { Search } from 'lucide-react'; 
 
