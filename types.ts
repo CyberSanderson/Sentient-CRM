@@ -40,6 +40,17 @@ export interface Lead {
   email?: string;
   website?: string;
 }
+// Existing code...
 
+// 🟢 NEW: User Profile for Limits & Plans
+export interface UserProfile {
+  id: string;
+  email: string;
+  plan: 'free' | 'pro' | 'enterprise';
+  credits: number; // How many dossiers they have left
+  dossiersGenerated: number; // Total lifetime usage
+  lastResetDate: string; // To reset credits daily
+  createdAt: any;
+}
 // Navigation views
 export type View = 'dashboard' | 'pipeline' | 'leads' | 'settings';

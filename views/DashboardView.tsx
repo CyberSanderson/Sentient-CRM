@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore'; 
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle, Lock } from 'lucide-react';
+import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
@@ -25,7 +25,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
   // --- 🧠 THE REAL AI BRAIN ---
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
+    // 🛑 STEP 1: THE GATEKEEPER (Check Credits)
     setLoading(true);
+    try {
+      const userRef = doc(db, 'users', user.id);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        // If credits are 0 or less, STOP immediately.
+        if (userData.credits <= 0) {
+          alert("You have reached your daily limit! 🛑\n\nUpgrade to Pro for unlimited leads.");
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      // We continue if there's an error (fail open) or stop (fail closed). 
+      // For now, let's stop to be safe.
+      setLoading(false);
+      return;
+    }
+
     setDossier(null);
     setSaved(false);
 
@@ -38,16 +62,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       // 1. Initialize Gemini
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // 🚀 MAJOR UPGRADE: Enable Google Search Tool
-      // We use 'as any' to bypass the TypeScript error if the SDK types are outdated
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         tools: [{
           googleSearch: {} 
-        } as any] // 👈 THIS FIXES THE RED LINE ERROR
+        } as any] 
       });
 
-      // 2. The Prompt (Updated for Search)
+      // 2. The Prompt
       const prompt = `
         You are a B2B Sales Expert. 
         First, USE GOOGLE SEARCH to find real-time information about this prospect:
@@ -69,9 +91,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
 
       // 4. Clean & Parse JSON
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
       const aiData = JSON.parse(text);
       setDossier(aiData);
+
+      // ✅ STEP 2: THE TOLL BOOTH (Deduct Credit)
+      // If we got here, the AI worked. Now we charge them.
+      const userRef = doc(db, 'users', user.id);
+      await updateDoc(userRef, {
+        credits: increment(-1),
+        dossiersGenerated: increment(1)
+      });
 
     } catch (error: any) {
       console.error("AI Analysis failed", error);
@@ -180,10 +209,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:grayscale"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
-                {loading ? 'Searching...' : 'Generate Dossier'}
+                {loading ? 'Analyzing...' : 'Generate Dossier'}
               </button>
             </form>
           </div>
@@ -202,7 +231,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
               <p className="font-medium text-lg">Scanning the live internet...</p>
-              <p className="text-sm opacity-70">Looking for recent news, interviews, and company data...</p>
+              <p className="text-sm opacity-70">Checking credits & analyzing data...</p>
             </div>
           )}
 
