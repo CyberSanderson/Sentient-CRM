@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle } from 'lucide-react';
+import { collection, addDoc } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
+import { GoogleGenerativeAI } from "@google/generative-ai"; // 👈 Import the AI SDK
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -21,6 +22,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // --- 🧠 THE REAL AI BRAIN ---
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -28,18 +30,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
     setSaved(false);
 
     try {
-      // Mock Data for Demo (Replace with real API call later if needed)
-      // This prevents "API Failed" errors during development
-      await new Promise(r => setTimeout(r, 1500)); // Fake delay
-      const mockDossier = {
-        personality: `Analysis suggests ${name} is a Driver/Achiever type. They value brevity, ROI, and clear outcomes.`,
-        iceBreakers: [`Saw your recent post about ${company}'s growth`, `Impressive tenure as ${role}`],
-        painPoints: ["Scaling operational efficiency", "Reducing manual overhead", "Integrating disparate tools"],
-        emailDraft: `Hi ${name},\n\nNoticed ${company} is scaling fast. Most leaders in your seat struggle with [Pain Point].\n\nWorth a chat?\n\nBest,\n[Your Name]`
-      };
-      setDossier(mockDossier);
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Missing VITE_GEMINI_API_KEY in .env file");
+      }
+
+      // 1. Initialize Gemini
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      // 2. The Prompt (Instructions for the AI)
+      const prompt = `
+        You are a B2B Sales Expert. Analyze this prospect:
+        Name: ${name}
+        Role: ${role}
+        Company: ${company}
+
+        Return a VALID JSON object (no markdown formatting) with these 4 fields:
+        1. "personality": A 2-sentence psychological profile of this person based on their role/industry (e.g., are they risk-averse? driven by ROI?).
+        2. "painPoints": An array of 3 specific business problems they likely face in their role.
+        3. "iceBreakers": An array of 2 casual, professional observations to start a conversation.
+        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant" to them. Use their name.
+      `;
+
+      // 3. Generate
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
+
+      // 4. Clean & Parse JSON (Remove backticks if Gemini adds them)
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const aiData = JSON.parse(text);
+
+      setDossier(aiData);
+
     } catch (error: any) {
-      console.error("Analysis failed", error);
+      console.error("AI Analysis failed", error);
+      alert(`AI Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -51,17 +78,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
 
     try {
       await addDoc(collection(db, 'leads'), {
-        userId: user.id, // ⚠️ CRITICAL: Must match the filter in App.tsx
+        userId: user.id, 
         name,
-        contactName: name, // Save both for compatibility
+        contactName: name, // Compatibility
         company,
         role,
         status: 'New',
+        stage: 'New', // Pipeline compatibility
         value: 0, 
         dossier: dossier, 
-        aiScore: 85,
-        // ⚠️ FIXED: Save as a Date object, NOT a string
-        createdAt: new Date() 
+        aiScore: Math.floor(Math.random() * (95 - 60 + 1)) + 60, // Random realistic score
+        createdAt: new Date() // Correct Timestamp
       });
       
       setSaved(true);
@@ -100,7 +127,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
                     type="text" 
                     required
                     className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                    placeholder="e.g. Elon Musk"
+                    placeholder="e.g. Satya Nadella"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -115,7 +142,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
                     type="text" 
                     required
                     className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                    placeholder="e.g. Tesla"
+                    placeholder="e.g. Microsoft"
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
                   />
@@ -153,15 +180,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
               <BrainCircuit size={64} className="mb-4 opacity-20" />
-              <p>Enter a prospect details to generate insights</p>
+              <p>Enter a prospect details to generate real AI insights</p>
             </div>
           )}
 
           {loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-medium">Consulting the AI oracle...</p>
-              <p className="text-sm opacity-70">Analyzing psychological drivers...</p>
+              <p className="font-medium text-lg">Consulting Gemini AI...</p>
+              <p className="text-sm opacity-70">Analyzing role, industry trends, and psychology...</p>
             </div>
           )}
 
