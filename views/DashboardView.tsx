@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle } from 'lucide-react';
-import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
+import { collection, addDoc } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
@@ -25,29 +25,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
   // --- 🧠 THE REAL AI BRAIN ---
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
-    // 🛑 STEP 1: THE GATEKEEPER (Check Credits)
     setLoading(true);
-    try {
-      const userRef = doc(db, 'users', user.id);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        // If credits are 0 or less, STOP immediately.
-        if (userData.credits <= 0) {
-          alert("You have reached your daily limit! 🛑\n\nUpgrade to Pro for unlimited leads.");
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error("Error checking credits:", error);
-      setLoading(false);
-      return;
-    }
-
     setDossier(null);
     setSaved(false);
 
@@ -60,16 +38,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       // 1. Initialize Gemini
       const genAI = new GoogleGenerativeAI(apiKey);
       
+      // 🚀 MAJOR UPGRADE: Enable Google Search Tool
+      // We use 'as any' to bypass the TypeScript error if the SDK types are outdated
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
-        // 🔒 FORCE JSON MODE (Fixes the syntax error)
-        generationConfig: { responseMimeType: "application/json" },
         tools: [{
           googleSearch: {} 
-        } as any] 
+        } as any] // 👈 THIS FIXES THE RED LINE ERROR
       });
 
-      // 2. The Prompt
+      // 2. The Prompt (Updated for Search)
       const prompt = `
         You are a B2B Sales Expert. 
         First, USE GOOGLE SEARCH to find real-time information about this prospect:
@@ -77,13 +55,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
         Role: ${role}
         Company: ${company}
 
-        Based *specifically* on the search results (recent news, LinkedIn, company website), return a VALID JSON object with these 4 fields:
-        {
-          "personality": "A 2-sentence psychological profile inferred from their actual public activity/interviews.",
-          "painPoints": ["Specific business problem 1", "Specific business problem 2", "Specific business problem 3"],
-          "iceBreakers": ["Observation about recent post/news 1", "Observation about company milestone 2"],
-          "emailDraft": "A short, 3-paragraph cold email pitching a 'AI Sales Assistant'. Mention a specific fact you found."
-        }
+        Based *specifically* on the search results (recent news, LinkedIn, company website), return a VALID JSON object (no markdown formatting, no backticks) with these 4 fields:
+        1. "personality": A 2-sentence psychological profile inferred from their actual public activity/interviews.
+        2. "painPoints": An array of 3 specific business problems their company is currently facing (cite real news/events if possible).
+        3. "iceBreakers": An array of 2 observations about their recent posts, news, or company milestones.
+        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant". Mention a specific fact you found.
       `;
 
       // 3. Generate
@@ -91,19 +67,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       const response = await result.response;
       let text = response.text();
 
-      // 4. Clean & Parse JSON (Safety Net)
-      // Even with JSON mode, sometimes models wrap it in markdown. We strip that.
+      // 4. Clean & Parse JSON
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       
       const aiData = JSON.parse(text);
       setDossier(aiData);
-
-      // ✅ STEP 2: THE TOLL BOOTH (Deduct Credit)
-      const userRef = doc(db, 'users', user.id);
-      await updateDoc(userRef, {
-        credits: increment(-1),
-        dossiersGenerated: increment(1)
-      });
 
     } catch (error: any) {
       console.error("AI Analysis failed", error);
@@ -212,10 +180,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:grayscale"
+                className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
-                {loading ? 'Analyzing...' : 'Generate Dossier'}
+                {loading ? 'Searching...' : 'Generate Dossier'}
               </button>
             </form>
           </div>
@@ -234,7 +202,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
               <p className="font-medium text-lg">Scanning the live internet...</p>
-              <p className="text-sm opacity-70">Checking credits & analyzing data...</p>
+              <p className="text-sm opacity-70">Looking for recent news, interviews, and company data...</p>
             </div>
           )}
 
