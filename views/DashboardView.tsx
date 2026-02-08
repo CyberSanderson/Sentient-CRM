@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface DashboardViewProps {
   leads: Lead[];
-  isDemoMode: boolean; // 👈 1. Added this to the interface
+  isDemoMode?: boolean; // 👈 Received from App.tsx
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
@@ -26,18 +26,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🛡️ 2. THE DEMO BYPASS
-    let canProceed = isDemoMode; 
+    // 🛡️ 1. THE GATEKEEPER BYPASS
+    // If it's a demo, we skip the credit check. If not, we enforce it.
+    let canProceed = false;
 
-    if (!isDemoMode) {
-      if (!user) return; // Not in demo and not logged in? Stop.
-      
+    if (isDemoMode) {
+      canProceed = true;
+    } else if (user) {
       const userRef = doc(db, 'users', user.id);
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
 
       if (userData && userData.credits <= 0) {
-        alert("⚠️ You have 0 credits remaining. Please upgrade to continue!");
+        alert("⚠️ Out of Credits: Upgrade to Pro to keep researching!");
         return;
       }
       canProceed = true;
@@ -53,7 +54,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // RESTORED: Your exact Gemini 2.5 Flash logic
+      // 🚀 Your stable Gemini 2.5 Flash Search Logic
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         tools: [{ googleSearch: {} } as any] 
@@ -68,7 +69,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const aiData = JSON.parse(text);
       setDossier(aiData);
 
-      // 💰 3. ONLY DEDUCT IF IT'S A REAL USER
+      // 💰 2. DEDUCT CREDIT ONLY FOR LOGGED-IN USERS
       if (!isDemoMode && user) {
         const userRef = doc(db, 'users', user.id);
         await updateDoc(userRef, {
@@ -85,7 +86,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   };
 
   const handleSaveLead = async () => {
-    // Demo users can't save to a database because they don't have a userId
     if (!dossier || !user || isDemoMode) return;
     setSaving(true);
     try {
@@ -109,43 +109,125 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* ... (Header and Input Form remain the same as your working code) ... */}
-      
-      {/* Change the button text/color if in demo mode to be extra helpful */}
-      <button 
-        type="submit" 
-        disabled={loading}
-        className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
-          isDemoMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-brand-600 hover:bg-brand-500'
-        }`}
-      >
-        {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
-        {loading ? 'Searching Live Web...' : isDemoMode ? 'Try Demo Search' : 'Generate Dossier'}
-      </button>
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
+        <p className="text-slate-500 mt-2">
+          {isDemoMode ? "✨ Demo Mode: Explore the power of real-time search." : "Generate a psychological dossier using Real-Time Search."}
+        </p>
+      </div>
 
-      {/* Results & Save Lead logic */}
-      <div className="lg:col-span-2">
-        {dossier && (
-          <div className="space-y-6">
-            <div className="flex justify-end">
-              {isDemoMode ? (
-                <div className="bg-brand-50 text-brand-700 px-4 py-2 rounded-xl border border-brand-100 text-sm font-bold">
-                  ✨ Log in to save this to your Pipeline
-                </div>
-              ) : (
-                <button 
-                  onClick={handleSaveLead}
-                  disabled={saving || saved}
-                  className="bg-white border p-3 rounded-xl font-bold flex items-center gap-2"
-                >
-                  {saved ? <CheckCircle size={18} /> : <Save size={18} />}
-                  {saved ? 'Saved' : 'Save Lead'}
-                </button>
-              )}
-            </div>
-            {/* ... (Render Dossier details below) ... */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Search size={20} className="text-brand-500" />
+              Target Profile
+            </h2>
+            
+            <form onSubmit={handleAnalyze} className="space-y-4">
+              <div className="space-y-3">
+                <input 
+                  type="text" required
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  placeholder="Prospect Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <input 
+                  type="text" required
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  placeholder="Company"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+                <input 
+                  type="text"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  placeholder="Role (Optional)"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  isDemoMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-brand-600 hover:bg-brand-500'
+                }`}
+              >
+                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
+                {loading ? 'Searching...' : isDemoMode ? 'Analyze (Demo)' : 'Generate Dossier'}
+              </button>
+            </form>
           </div>
-        )}
+        </div>
+
+        <div className="lg:col-span-2">
+          {!dossier && !loading && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
+              <BrainCircuit size={64} className="mb-4 opacity-20" />
+              <p>Enter prospect details to unlock Real-Time insights</p>
+            </div>
+          )}
+
+          {loading && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
+              <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
+              <p className="font-medium text-lg">Scanning the live internet...</p>
+            </div>
+          )}
+
+          {dossier && (
+            <div className="space-y-6 animate-fade-in-up">
+              <div className="flex justify-end">
+                {isDemoMode ? (
+                  <div className="bg-brand-50 text-brand-700 px-4 py-2 rounded-xl border border-brand-100 text-sm font-bold">
+                    ✨ Create an account to save this lead
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleSaveLead}
+                    disabled={saving || saved}
+                    className="bg-white text-slate-900 border border-slate-200 px-6 py-2 rounded-xl font-bold hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    {saved ? <CheckCircle size={20} className="text-emerald-500" /> : <Save size={20} />}
+                    {saved ? 'Saved to Pipeline' : 'Save Lead'}
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Personality</h3>
+                <p className="text-slate-700 leading-relaxed font-medium">{dossier.personality}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                  <h3 className="font-bold text-red-600 mb-3">Pain Points</h3>
+                  <ul className="space-y-2">
+                    {dossier.painPoints.map((p, i) => <li key={i} className="text-sm text-slate-600">• {p}</li>)}
+                  </ul>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                  <h3 className="font-bold text-emerald-600 mb-3">Ice Breakers</h3>
+                  <ul className="space-y-2">
+                    {dossier.iceBreakers.map((p, i) => <li key={i} className="text-sm text-slate-600">• {p}</li>)}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 p-6 rounded-2xl">
+                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                  <Send className="text-brand-400" size={18} /> Email Draft
+                </h3>
+                <div className="text-slate-300 text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                  {dossier.emailDraft}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
