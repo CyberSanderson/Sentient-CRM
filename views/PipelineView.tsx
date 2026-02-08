@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { GripVertical, DollarSign } from 'lucide-react';
+import { GripVertical, DollarSign, Pencil } from 'lucide-react'; // 👈 Added Pencil
 import { Lead, LeadStage } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import EditLeadModal from '../components/EditLeadModal'; // ⚠️ ENSURE THIS IMPORT WORKS
+import EditLeadModal from '../components/EditLeadModal';
 
 interface PipelineViewProps {
   leads: Lead[];
@@ -45,7 +45,7 @@ const PipelineView: React.FC<PipelineViewProps> = ({ leads }) => {
         <div className="mb-6 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
-            <p className="text-slate-500">Drag to move • Click to edit</p>
+            <p className="text-slate-500">Drag handle to move • Click pencil to edit</p>
           </div>
           <div className="bg-emerald-100 px-4 py-2 rounded-xl border border-emerald-200">
             <span className="text-emerald-800 text-sm font-bold uppercase tracking-wider mr-2">Total Pipeline</span>
@@ -86,18 +86,33 @@ const PipelineView: React.FC<PipelineViewProps> = ({ leads }) => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  onClick={() => setEditingLead(lead)} // 👈 THIS TRIGGERS THE EDIT
-                                  className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-3 group hover:shadow-md hover:border-brand-300 transition-all cursor-pointer relative ${
+                                  className={`bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-3 group hover:shadow-md hover:border-brand-300 transition-all relative ${
                                     snapshot.isDragging ? 'shadow-xl ring-2 ring-brand-500 rotate-2' : ''
                                   }`}
                                 >
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {/* Drag Handle Icon */}
+                                  <div className="absolute right-2 top-2 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <GripVertical size={16} />
                                   </div>
+
                                   <div className="flex flex-col gap-2">
-                                    <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full uppercase tracking-wide w-fit">
-                                      {lead.company}
-                                    </span>
+                                    <div className="flex justify-between items-start">
+                                      <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full uppercase tracking-wide w-fit">
+                                        {lead.company}
+                                      </span>
+                                      
+                                      {/* ✏️ DEDICATED EDIT BUTTON */}
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation(); // 👈 Prevents the drag library from seeing the click
+                                          setEditingLead(lead);
+                                        }}
+                                        className="text-slate-400 hover:text-brand-600 transition-colors p-1"
+                                      >
+                                        <Pencil size={14} />
+                                      </button>
+                                    </div>
+                                    
                                     <div>
                                       <h4 className="font-bold text-slate-900 leading-tight">{lead.name}</h4>
                                       <p className="text-xs text-slate-500 mt-0.5">{lead.role}</p>
