@@ -4,7 +4,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
-import { GoogleGenerativeAI } from "@google/generative-ai"; // 👈 Import the AI SDK
+import { GoogleGenerativeAI } from "@google/generative-ai"; 
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -22,7 +22,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // --- 🧠 THE REAL AI BRAIN ---
+  // --- 🧠 THE REAL AI BRAIN (Gemini 2.5) ---
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -37,20 +37,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
 
       // 1. Initialize Gemini
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
+      // 🚀 UPDATED: Using Gemini 2.5 Flash (The 2026 Standard)
+      // If this fails, it falls back to 2.0 automatically in the catch block? 
+      // No, we set it explicitly here.
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-      // 2. The Prompt (Instructions for the AI)
+      // 2. The Prompt (Strict JSON Instructions)
       const prompt = `
         You are a B2B Sales Expert. Analyze this prospect:
         Name: ${name}
         Role: ${role}
         Company: ${company}
 
-        Return a VALID JSON object (no markdown formatting) with these 4 fields:
-        1. "personality": A 2-sentence psychological profile of this person based on their role/industry (e.g., are they risk-averse? driven by ROI?).
-        2. "painPoints": An array of 3 specific business problems they likely face in their role.
+        Return a VALID JSON object (no markdown formatting, no backticks) with these 4 fields:
+        1. "personality": A 2-sentence psychological profile of this person based on their role/industry.
+        2. "painPoints": An array of 3 specific business problems they likely face.
         3. "iceBreakers": An array of 2 casual, professional observations to start a conversation.
-        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant" to them. Use their name.
+        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant".
       `;
 
       // 3. Generate
@@ -58,15 +62,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       const response = await result.response;
       let text = response.text();
 
-      // 4. Clean & Parse JSON (Remove backticks if Gemini adds them)
+      // 4. Clean & Parse JSON (Sanitization)
+      // Sometimes models add ```json ... ``` wrappers
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
       const aiData = JSON.parse(text);
-
       setDossier(aiData);
 
     } catch (error: any) {
       console.error("AI Analysis failed", error);
-      alert(`AI Error: ${error.message}`);
+      
+      // ⚠️ Fallback Message if 2.5 isn't available on your specific key yet
+      if (error.message.includes("404") || error.message.includes("not found")) {
+        alert("Error: Gemini 2.5 Flash model not found. Please check your API key permissions or try 'gemini-2.0-flash'.");
+      } else {
+        alert(`AI Error: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -84,10 +95,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
         company,
         role,
         status: 'New',
-        stage: 'New', // Pipeline compatibility
+        stage: 'New', 
         value: 0, 
         dossier: dossier, 
-        aiScore: Math.floor(Math.random() * (95 - 60 + 1)) + 60, // Random realistic score
+        aiScore: Math.floor(Math.random() * (95 - 60 + 1)) + 60, 
         createdAt: new Date() // Correct Timestamp
       });
       
@@ -105,7 +116,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
-          <p className="text-slate-500 mt-2">Generate a psychological dossier on any prospect.</p>
+          <p className="text-slate-500 mt-2">Generate a psychological dossier using Gemini 2.5.</p>
         </div>
       </div>
 
@@ -180,14 +191,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
               <BrainCircuit size={64} className="mb-4 opacity-20" />
-              <p>Enter a prospect details to generate real AI insights</p>
+              <p>Enter prospect details to unlock Gemini 2.5 insights</p>
             </div>
           )}
 
           {loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-medium text-lg">Consulting Gemini AI...</p>
+              <p className="font-medium text-lg">Consulting Gemini 2.5...</p>
               <p className="text-sm opacity-70">Analyzing role, industry trends, and psychology...</p>
             </div>
           )}
