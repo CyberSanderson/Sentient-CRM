@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle, Lock } from 'lucide-react';
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, AlertTriangle } from 'lucide-react';
 import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -44,8 +44,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       }
     } catch (error) {
       console.error("Error checking credits:", error);
-      // We continue if there's an error (fail open) or stop (fail closed). 
-      // For now, let's stop to be safe.
       setLoading(false);
       return;
     }
@@ -64,6 +62,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
+        // 🔒 FORCE JSON MODE (Fixes the syntax error)
+        generationConfig: { responseMimeType: "application/json" },
         tools: [{
           googleSearch: {} 
         } as any] 
@@ -77,11 +77,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
         Role: ${role}
         Company: ${company}
 
-        Based *specifically* on the search results (recent news, LinkedIn, company website), return a VALID JSON object (no markdown formatting, no backticks) with these 4 fields:
-        1. "personality": A 2-sentence psychological profile inferred from their actual public activity/interviews.
-        2. "painPoints": An array of 3 specific business problems their company is currently facing (cite real news/events if possible).
-        3. "iceBreakers": An array of 2 observations about their recent posts, news, or company milestones.
-        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant". Mention a specific fact you found.
+        Based *specifically* on the search results (recent news, LinkedIn, company website), return a VALID JSON object with these 4 fields:
+        {
+          "personality": "A 2-sentence psychological profile inferred from their actual public activity/interviews.",
+          "painPoints": ["Specific business problem 1", "Specific business problem 2", "Specific business problem 3"],
+          "iceBreakers": ["Observation about recent post/news 1", "Observation about company milestone 2"],
+          "emailDraft": "A short, 3-paragraph cold email pitching a 'AI Sales Assistant'. Mention a specific fact you found."
+        }
       `;
 
       // 3. Generate
@@ -89,13 +91,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       const response = await result.response;
       let text = response.text();
 
-      // 4. Clean & Parse JSON
+      // 4. Clean & Parse JSON (Safety Net)
+      // Even with JSON mode, sometimes models wrap it in markdown. We strip that.
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      
       const aiData = JSON.parse(text);
       setDossier(aiData);
 
       // ✅ STEP 2: THE TOLL BOOTH (Deduct Credit)
-      // If we got here, the AI worked. Now we charge them.
       const userRef = doc(db, 'users', user.id);
       await updateDoc(userRef, {
         credits: increment(-1),
