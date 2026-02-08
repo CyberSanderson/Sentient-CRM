@@ -3,7 +3,6 @@ import {
   SignedIn, 
   SignedOut, 
   SignIn, 
-  SignUp, 
   UserButton, 
   useUser 
 } from "@clerk/clerk-react";
@@ -11,18 +10,16 @@ import {
   LayoutDashboard, 
   KanbanSquare, 
   Users, 
-  Settings, 
   ShieldAlert 
 } from "lucide-react";
 import DashboardView from './views/DashboardView';
 import PipelineView from './views/PipelineView';
 import LeadsView from './views/LeadsView';
-import AdminView from './views/AdminView'; // We will create this next
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import AdminView from './views/AdminView';
+import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from './lib/firebase';
-import { UserProfile } from './types';
+import { UserProfile, Lead } from './types';
 
-// ... (Keep your existing Navigation Item component) ...
 function NavItem({ icon, label, active, onClick }: any) {
   return (
     <button
@@ -42,43 +39,49 @@ function NavItem({ icon, label, active, onClick }: any) {
 function App() {
   const { user, isLoaded } = useUser();
   const [currentView, setCurrentView] = useState('dashboard');
-  const [leads, setLeads] = useState<any[]>([]); // We fetch these in views now
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // 🔄 SYNC USER TO FIREBASE & RESET DAILY LIMITS
+  // 🔄 1. SYNC USER TO FIREBASE (With Debugging Logs)
   useEffect(() => {
     const syncUser = async () => {
       if (!user) return;
+      
+      console.log("🔄 Attempting to sync user:", user.id); // Debug Log
 
-      const userRef = doc(db, 'users', user.id);
-      const userSnap = await getDoc(userRef);
-      const today = new Date().toISOString().split('T')[0]; // "2023-10-27"
+      try {
+        const userRef = doc(db, 'users', user.id);
+        const userSnap = await getDoc(userRef);
+        const today = new Date().toISOString().split('T')[0];
 
-      if (userSnap.exists()) {
-        // User exists: Check if we need to reset daily credits
-        const data = userSnap.data() as UserProfile;
-        
-        if (data.lastResetDate !== today) {
-          // It's a new day! Reset credits.
-          await updateDoc(userRef, {
-            credits: data.plan === 'free' ? 3 : 100, // Free = 3, Pro = 100
-            lastResetDate: today
-          });
+        if (userSnap.exists()) {
+          console.log("✅ User exists in DB. Checking daily reset...");
+          const data = userSnap.data() as UserProfile;
+          if (data.lastResetDate !== today) {
+            await updateDoc(userRef, {
+              credits: data.plan === 'free' ? 3 : 100,
+              lastResetDate: today
+            });
+            console.log("♻️ Credits reset for new day.");
+          }
+          setUserProfile(data);
+        } else {
+          console.log("🆕 New User detected! Creating DB profile...");
+          const newProfile: UserProfile = {
+            id: user.id,
+            email: user.primaryEmailAddress?.emailAddress || '',
+            plan: 'free',
+            credits: 3,
+            dossiersGenerated: 0,
+            lastResetDate: today,
+            createdAt: new Date()
+          };
+          await setDoc(userRef, newProfile);
+          setUserProfile(newProfile);
+          console.log("✨ User Profile Created Successfully!");
         }
-        setUserProfile(data);
-      } else {
-        // New User! Create their profile.
-        const newProfile: UserProfile = {
-          id: user.id,
-          email: user.primaryEmailAddress?.emailAddress || '',
-          plan: 'free',
-          credits: 3, // Start with 3 credits
-          dossiersGenerated: 0,
-          lastResetDate: today,
-          createdAt: new Date()
-        };
-        await setDoc(userRef, newProfile);
-        setUserProfile(newProfile);
+      } catch (error) {
+        console.error("❌ Error syncing user:", error);
       }
     };
 
@@ -87,13 +90,28 @@ function App() {
     }
   }, [user, isLoaded]);
 
+  // 🔄 2. REAL-TIME LEADS LISTENER (Fixes Pipeline not seeing data)
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(collection(db, 'leads'), where('userId', '==', user.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const leadsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Lead[];
+      setLeads(leadsData);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   if (!isLoaded) return <div className="h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <SignedOut>
         <div className="h-screen flex items-center justify-center bg-slate-900">
-           {/* Clerk handles the Toggle between Sign In / Sign Up automatically */}
            <div className="bg-white p-2 rounded-2xl">
               <SignIn routing="hash" /> 
            </div>
@@ -133,7 +151,7 @@ function App() {
                 onClick={() => setCurrentView('leads')} 
               />
               
-              {/* Only show Admin to YOU (Replace with your email) */}
+              {/* ADMIN BUTTON: Replace with your email */}
               {user?.primaryEmailAddress?.emailAddress === 'YOUR_EMAIL@gmail.com' && (
                 <div className="pt-4 mt-4 border-t border-slate-100">
                   <p className="px-4 text-xs font-bold text-slate-400 uppercase mb-2">Admin</p>
@@ -148,7 +166,6 @@ function App() {
             </nav>
 
             <div className="p-4 border-t border-slate-100">
-               {/* Show Credits Left */}
                {userProfile && (
                  <div className="mb-4 px-2">
                    <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
