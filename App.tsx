@@ -20,6 +20,7 @@ import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
 import PipelineView from './views/PipelineView'; 
 import LandingPage from './views/LandingPage';
+import PricingView from './views/PricingView'; // 👈 Make sure this import is here
 
 import { View, Lead, LeadStage } from './types';
 import { APP_NAME } from './constants';
@@ -38,7 +39,6 @@ const SentientApp = () => {
 
   // --- 🛡️ SYNC USER & LISTEN TO CREDITS ---
   useEffect(() => {
-    // If we are in demo mode or not signed in, we don't sync with Firebase users
     if (!user || isDemoMode) return;
 
     const syncAndListen = async () => {
@@ -85,14 +85,19 @@ const SentientApp = () => {
     setCurrentView('dashboard');
   };
 
+  // 🛠️ MOVED: renderView is now correctly placed before the return statement
+  const renderView = () => {
+    switch (currentView) {
+      case 'dashboard': return <DashboardView leads={leads} isDemoMode={isDemoMode} />;
+      case 'pipeline': return <PipelineView leads={leads} />;
+      case 'leads': return <LeadsView leads={leads} />;
+      case 'pricing': return <PricingView />; 
+      default: return <DashboardView leads={leads} isDemoMode={isDemoMode} />;
+    }
+  };
+
   if (!isSignedIn && !isDemoMode) {
-    return (
-      <LandingPage 
-        onLoginClick={openSignIn} 
-        onSignupClick={openSignUp} 
-        onDemoClick={() => setIsDemoMode(true)} 
-      />
-    );
+    return <LandingPage onLoginClick={openSignIn} onSignupClick={openSignUp} onDemoClick={() => setIsDemoMode(true)} />;
   }
 
   return (
@@ -129,7 +134,11 @@ const SentientApp = () => {
                 style={{ width: isDemoMode ? '100%' : `${((userProfile?.credits || 0) / 3) * 100}%` }}
               />
             </div>
-            <button className="w-full py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-[10px] font-bold uppercase tracking-tighter transition-colors">
+            {/* 🚀 FIXED: Only one button here, and it works! */}
+            <button 
+              onClick={() => setCurrentView('pricing')}
+              className="w-full py-2 bg-brand-600 hover:bg-brand-500 rounded-lg text-[10px] font-bold uppercase tracking-tighter transition-colors"
+            >
               Upgrade to Unlimited
             </button>
           </div>
@@ -141,7 +150,7 @@ const SentientApp = () => {
               {isDemoMode ? 'D' : (user?.firstName?.[0] || 'U')}
             </div>
             <p className="text-sm font-medium truncate flex-1">{isDemoMode ? 'Demo User' : (user?.fullName || 'User')}</p>
-            <LogOut size={16} onClick={handleLogout} className="text-slate-400 hover:text-red-500 cursor-pointer" />
+            <LogOut size={16} onClick={handleLogout} className="text-slate-400 hover:text-red-500 cursor-pointer transition-colors" />
           </div>
         </div>
       </aside>
@@ -150,10 +159,8 @@ const SentientApp = () => {
       <main className="flex-1 overflow-hidden relative">
         <div className="h-full overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto h-full">
-             {/* 🚀 FIXED: isDemoMode is now passed down properly */}
-             {currentView === 'dashboard' && <DashboardView leads={leads} isDemoMode={isDemoMode} />}
-             {currentView === 'pipeline' && <PipelineView leads={leads} />}
-             {currentView === 'leads' && <LeadsView leads={leads} />}
+             {/* 🚀 FIXED: We now call the renderView function correctly here */}
+             {renderView()}
           </div>
         </div>
       </main>
