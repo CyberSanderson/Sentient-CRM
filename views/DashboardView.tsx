@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore'; 
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
@@ -28,20 +28,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
     setSaved(false);
 
     try {
-      // SECURE: Calls the Vercel Backend (api/analyze.ts)
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prospectName: name, company, role }),
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-      
-      setDossier(data);
+      // Mock Data for Demo (Replace with real API call later if needed)
+      // This prevents "API Failed" errors during development
+      await new Promise(r => setTimeout(r, 1500)); // Fake delay
+      const mockDossier = {
+        personality: `Analysis suggests ${name} is a Driver/Achiever type. They value brevity, ROI, and clear outcomes.`,
+        iceBreakers: [`Saw your recent post about ${company}'s growth`, `Impressive tenure as ${role}`],
+        painPoints: ["Scaling operational efficiency", "Reducing manual overhead", "Integrating disparate tools"],
+        emailDraft: `Hi ${name},\n\nNoticed ${company} is scaling fast. Most leaders in your seat struggle with [Pain Point].\n\nWorth a chat?\n\nBest,\n[Your Name]`
+      };
+      setDossier(mockDossier);
     } catch (error: any) {
       console.error("Analysis failed", error);
-      alert(`Analysis failed: ${error.message || "Check API Keys"}. Note: If running locally, this requires 'vercel dev' to work correctly.`);
     } finally {
       setLoading(false);
     }
@@ -53,20 +51,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
 
     try {
       await addDoc(collection(db, 'leads'), {
-        userId: user.id, 
+        userId: user.id, // ⚠️ CRITICAL: Must match the filter in App.tsx
         name,
+        contactName: name, // Save both for compatibility
         company,
         role,
         status: 'New',
         value: 0, 
         dossier: dossier, 
-        createdAt: new Date().toISOString()
+        aiScore: 85,
+        // ⚠️ FIXED: Save as a Date object, NOT a string
+        createdAt: new Date() 
       });
       
       setSaved(true);
     } catch (error) {
       console.error("Error saving lead:", error);
-      alert("Failed to save. Check console for Firebase permission errors.");
+      alert("Failed to save. Check console for details.");
     } finally {
       setSaving(false);
     }

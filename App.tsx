@@ -9,7 +9,7 @@ import {
   Bot,
   LogOut,
   Eye,
-  Search // Added Search icon import
+  Search 
 } from 'lucide-react';
 import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
 import { collection, query, where, onSnapshot } from 'firebase/firestore'; 
@@ -18,14 +18,12 @@ import { db } from './lib/firebase';
 // --- VIEWS ---
 import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
-// ⚠️ UPDATED: Importing your new Kanban Board from components
 import PipelineView from './views/PipelineView'; 
 import LandingPage from './views/LandingPage';
 
 import { View, Lead, LeadStage } from './types';
 import { APP_NAME } from './constants';
 
-// Get the key securely
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!clerkPubKey) {
@@ -33,16 +31,13 @@ if (!clerkPubKey) {
 }
 
 const SentientApp = () => {
-  // Clerk State
   const { user, isSignedIn } = useUser();
   const { signOut, openSignIn, openSignUp } = useClerk();
   
-  // App State
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // DATA STATE
   const [leads, setLeads] = useState<Lead[]>([]); 
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -51,7 +46,7 @@ const SentientApp = () => {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
-  // --- REAL-TIME DATABASE LISTENER ---
+  // --- REAL-TIME DATABASE LISTENER (ROBUST VERSION) ---
   useEffect(() => {
     if (!user || isDemoMode) return;
 
@@ -62,21 +57,34 @@ const SentientApp = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // 🛡️ DATA SANITIZATION: Prevents the Kanban from crashing
       const loadedLeads = snapshot.docs.map(doc => {
         const data = doc.data();
+        
+        // 🛡️ DATE SAFETY FIX: Handles both Firestore Timestamps AND Strings
+        let validDate = new Date();
+        if (data.createdAt) {
+           // If it has a .toDate() function, it's a Firebase Timestamp
+           if (typeof data.createdAt.toDate === 'function') {
+             validDate = data.createdAt.toDate(); 
+           } else {
+             // Otherwise, treat it as a string/date
+             validDate = new Date(data.createdAt); 
+           }
+        }
+
         return {
           id: doc.id,
-          // Defaults for missing fields
+          // Defaults for missing fields to prevent crashes
           company: data.company || "Unknown Company",
-          name: data.contactName || "Unknown Contact",
-          stage: (data.status as LeadStage) || "New", // Default to "New"
+          name: data.name || data.contactName || "Unknown Contact",
+          stage: (data.status as LeadStage) || "New", 
           value: data.value || 0,
-          lastContact: data.createdAt ? data.createdAt.toDate() : new Date(),
+          lastContact: validDate,
           aiScore: data.aiScore || 50,
           email: data.email || "",
           role: data.role || "",
-          ...data // Overwrite with real data if it exists
+          dossier: data.dossier || null,
+          ...data 
         };
       }) as Lead[];
       
@@ -97,16 +105,11 @@ const SentientApp = () => {
     setLeads([]);
   };
 
-  // --- VIEW ROUTER ---
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <DashboardView leads={leads} />;
-      
-      // 🟢 The "Pipeline" tab now loads your Kanban Board
       case 'pipeline': return <PipelineView leads={leads} setLeads={setLeads} />;
-      
       case 'leads': return <LeadsView leads={leads} setLeads={setLeads} />;
-      
       case 'settings': return (
           <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-fade-in">
             <Settings size={64} className="mb-4 opacity-20" />
@@ -184,14 +187,6 @@ const SentientApp = () => {
       </aside>
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-50">
-        {isDemoMode && (
-          <div className="bg-indigo-50 text-indigo-700 text-xs font-medium py-1 px-4 text-center border-b border-indigo-100 flex items-center justify-center gap-2">
-            <Eye size={14} />
-            You are viewing a live demo. Data is reset upon exit.
-            <button onClick={handleLogout} className="underline hover:text-indigo-900 ml-2">Exit Demo</button>
-          </div>
-        )}
-
         <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 bg-white/80 backdrop-blur-md z-30 relative">
           <div className="flex items-center gap-2" onClick={() => setCurrentView('dashboard')}>
              <div className="bg-gradient-to-br from-brand-400 to-brand-600 p-1.5 rounded-lg shadow-md">
