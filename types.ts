@@ -1,43 +1,45 @@
-import { ReactNode } from "react";
-
+// Define the stages for the Kanban board
 export enum LeadStage {
   NEW = 'New',
   CONTACTED = 'Contacted',
   MEETING = 'Meeting Scheduled',
   PROPOSAL = 'Proposal Sent',
-  NEGOTIATION = 'Negotiation',
-  CLOSED_WON = 'Closed Won',
-  CLOSED_LOST = 'Closed Lost'
+  CLOSED = 'Closed Won'
 }
 
+// 🟢 NEW: This is the missing definition causing your error
+export interface Dossier {
+  personality: string;
+  painPoints: string[];
+  iceBreakers: string[];
+  emailDraft: string;
+}
+
+// The main Lead object saved in Firebase
 export interface Lead {
-  dossier: any;
-  role: ReactNode;
   id: string;
+  userId: string;
   name: string;
   company: string;
-  email: string;
-  phone: string;
+  role: string;
+  status: string;
+  stage: LeadStage | string;
   value: number;
-  stage: LeadStage;
-  lastContact: string; // ISO Date
-  source: string;
-  notes: string;
-  aiScore?: number; // 0-100
-  aiInsight?: string;
+  
+  // Dates can be Firebase Timestamps or JS Dates, so we keep it flexible
+  createdAt: Date | any; 
+  lastContact?: Date;
+  
+  aiScore?: number;
+  
+  // 🟢 Link the Dossier here
+  dossier?: Dossier; 
+  
+  // Optional fields
+  contactName?: string; 
+  email?: string;
+  website?: string;
 }
 
-export interface KPI {
-  label: string;
-  value: string | number;
-  trend: number; // Percentage change
-  trendDirection: 'up' | 'down' | 'neutral';
-  icon: string;
-}
-
+// Navigation views
 export type View = 'dashboard' | 'pipeline' | 'leads' | 'settings';
-
-export interface AIResponse {
-  text: string;
-  data?: any;
-}

@@ -22,7 +22,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // --- 🧠 THE REAL AI BRAIN (Gemini 2.5) ---
+  // --- 🧠 THE REAL AI BRAIN ---
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -38,23 +38,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       // 1. Initialize Gemini
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // 🚀 UPDATED: Using Gemini 2.5 Flash (The 2026 Standard)
-      // If this fails, it falls back to 2.0 automatically in the catch block? 
-      // No, we set it explicitly here.
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      // 🚀 MAJOR UPGRADE: Enable Google Search Tool
+      // We use 'as any' to bypass the TypeScript error if the SDK types are outdated
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash", 
+        tools: [{
+          googleSearch: {} 
+        } as any] // 👈 THIS FIXES THE RED LINE ERROR
+      });
 
-      // 2. The Prompt (Strict JSON Instructions)
+      // 2. The Prompt (Updated for Search)
       const prompt = `
-        You are a B2B Sales Expert. Analyze this prospect:
+        You are a B2B Sales Expert. 
+        First, USE GOOGLE SEARCH to find real-time information about this prospect:
         Name: ${name}
         Role: ${role}
         Company: ${company}
 
-        Return a VALID JSON object (no markdown formatting, no backticks) with these 4 fields:
-        1. "personality": A 2-sentence psychological profile of this person based on their role/industry.
-        2. "painPoints": An array of 3 specific business problems they likely face.
-        3. "iceBreakers": An array of 2 casual, professional observations to start a conversation.
-        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant".
+        Based *specifically* on the search results (recent news, LinkedIn, company website), return a VALID JSON object (no markdown formatting, no backticks) with these 4 fields:
+        1. "personality": A 2-sentence psychological profile inferred from their actual public activity/interviews.
+        2. "painPoints": An array of 3 specific business problems their company is currently facing (cite real news/events if possible).
+        3. "iceBreakers": An array of 2 observations about their recent posts, news, or company milestones.
+        4. "emailDraft": A short, 3-paragraph cold email pitching a "AI Sales Assistant". Mention a specific fact you found.
       `;
 
       // 3. Generate
@@ -62,8 +67,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       const response = await result.response;
       let text = response.text();
 
-      // 4. Clean & Parse JSON (Sanitization)
-      // Sometimes models add ```json ... ``` wrappers
+      // 4. Clean & Parse JSON
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       
       const aiData = JSON.parse(text);
@@ -72,9 +76,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
     } catch (error: any) {
       console.error("AI Analysis failed", error);
       
-      // ⚠️ Fallback Message if 2.5 isn't available on your specific key yet
       if (error.message.includes("404") || error.message.includes("not found")) {
-        alert("Error: Gemini 2.5 Flash model not found. Please check your API key permissions or try 'gemini-2.0-flash'.");
+        alert("Error: Model not found. Please try 'gemini-2.0-flash' or check your API key.");
       } else {
         alert(`AI Error: ${error.message}`);
       }
@@ -91,7 +94,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       await addDoc(collection(db, 'leads'), {
         userId: user.id, 
         name,
-        contactName: name, // Compatibility
+        contactName: name,
         company,
         role,
         status: 'New',
@@ -99,7 +102,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
         value: 0, 
         dossier: dossier, 
         aiScore: Math.floor(Math.random() * (95 - 60 + 1)) + 60, 
-        createdAt: new Date() // Correct Timestamp
+        createdAt: new Date()
       });
       
       setSaved(true);
@@ -116,7 +119,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
-          <p className="text-slate-500 mt-2">Generate a psychological dossier using Gemini 2.5.</p>
+          <p className="text-slate-500 mt-2">Generate a psychological dossier using Real-Time Search.</p>
         </div>
       </div>
 
@@ -180,7 +183,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
                 className="w-full py-4 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
-                {loading ? 'Analyzing...' : 'Generate Dossier'}
+                {loading ? 'Searching...' : 'Generate Dossier'}
               </button>
             </form>
           </div>
@@ -191,15 +194,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads }) => {
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
               <BrainCircuit size={64} className="mb-4 opacity-20" />
-              <p>Enter prospect details to unlock Gemini 2.5 insights</p>
+              <p>Enter prospect details to unlock Real-Time insights</p>
             </div>
           )}
 
           {loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-medium text-lg">Consulting Gemini 2.5...</p>
-              <p className="text-sm opacity-70">Analyzing role, industry trends, and psychology...</p>
+              <p className="font-medium text-lg">Scanning the live internet...</p>
+              <p className="text-sm opacity-70">Looking for recent news, interviews, and company data...</p>
             </div>
           )}
 
