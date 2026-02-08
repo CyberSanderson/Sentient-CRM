@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, Zap, ShieldAlert } from 'lucide-react';
 import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -8,7 +8,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface DashboardViewProps {
   leads: Lead[];
-  isDemoMode?: boolean; // 👈 Received from App.tsx
+  isDemoMode: boolean;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
@@ -23,28 +23,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // 🛡️ TRACK DEMO USAGE IN BROWSER
+  const [demoCredits, setDemoCredits] = useState(() => {
+    const saved = localStorage.getItem('sentient_demo_credits');
+    return saved !== null ? parseInt(saved) : 2; // Start with 2 demo searches
+  });
+
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🛡️ 1. THE GATEKEEPER BYPASS
-    // If it's a demo, we skip the credit check. If not, we enforce it.
-    let canProceed = false;
-
+    // 🛑 1. THE GATEKEEPER
     if (isDemoMode) {
-      canProceed = true;
-    } else if (user) {
+      if (demoCredits <= 0) {
+        alert("🚀 Demo Limit Reached! You've used your free demo searches. Sign up for a free account to get 3 more credits and save your leads!");
+        return;
+      }
+    } else {
+      if (!user) return;
       const userRef = doc(db, 'users', user.id);
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
-
       if (userData && userData.credits <= 0) {
         alert("⚠️ Out of Credits: Upgrade to Pro to keep researching!");
         return;
       }
-      canProceed = true;
     }
-
-    if (!canProceed) return;
 
     setLoading(true);
     setDossier(null);
@@ -54,7 +57,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // 🚀 Your stable Gemini 2.5 Flash Search Logic
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         tools: [{ googleSearch: {} } as any] 
@@ -69,12 +71,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const aiData = JSON.parse(text);
       setDossier(aiData);
 
-      // 💰 2. DEDUCT CREDIT ONLY FOR LOGGED-IN USERS
-      if (!isDemoMode && user) {
+      // 💰 2. DEDUCT CREDITS
+      if (isDemoMode) {
+        const newCredits = demoCredits - 1;
+        setDemoCredits(newCredits);
+        localStorage.setItem('sentient_demo_credits', newCredits.toString());
+      } else if (user) {
         const userRef = doc(db, 'users', user.id);
-        await updateDoc(userRef, {
-          credits: increment(-1)
-        });
+        await updateDoc(userRef, { credits: increment(-1) });
       }
 
     } catch (error: any) {
@@ -108,56 +112,50 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">AI Research Center</h1>
-        <p className="text-slate-500 mt-2">
-          {isDemoMode ? "✨ Demo Mode: Explore the power of real-time search." : "Generate a psychological dossier using Real-Time Search."}
-        </p>
+    <div className="space-y-6 animate-fade-in pb-10">
+      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
+          <p className="text-slate-500 text-sm">Real-time intelligence via Gemini Search.</p>
+        </div>
+        {isDemoMode && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
+            <Zap size={16} className="text-brand-600 fill-brand-600" />
+            <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
+              {demoCredits} Demo Searches Left
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Search size={20} className="text-brand-500" />
-              Target Profile
-            </h2>
-            
             <form onSubmit={handleAnalyze} className="space-y-4">
               <div className="space-y-3">
-                <input 
-                  type="text" required
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
-                  placeholder="Prospect Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <input 
-                  type="text" required
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
-                  placeholder="Company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-                <input 
-                  type="text"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
-                  placeholder="Role (Optional)"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                />
+                <div className="relative">
+                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
+                </div>
+                <div className="relative">
+                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} required />
+                </div>
+                <div className="relative">
+                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Job Title" value={role} onChange={e => setRole(e.target.value)} />
+                </div>
               </div>
 
               <button 
                 type="submit" 
-                disabled={loading}
+                disabled={loading || (isDemoMode && demoCredits <= 0)}
                 className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
-                  isDemoMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-brand-600 hover:bg-brand-500'
+                  isDemoMode ? 'bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300' : 'bg-brand-600 hover:bg-brand-500'
                 }`}
               >
-                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
-                {loading ? 'Searching...' : isDemoMode ? 'Analyze (Demo)' : 'Generate Dossier'}
+                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                {loading ? 'Searching...' : isDemoMode && demoCredits <= 0 ? 'Limit Reached' : 'Analyze Prospect'}
               </button>
             </form>
           </div>
@@ -165,16 +163,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
         <div className="lg:col-span-2">
           {!dossier && !loading && (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 min-h-[400px]">
-              <BrainCircuit size={64} className="mb-4 opacity-20" />
-              <p>Enter prospect details to unlock Real-Time insights</p>
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
+              <BrainCircuit size={48} className="mb-4 opacity-10" />
+              <p className="font-medium">Enter details to generate AI dossier</p>
             </div>
           )}
 
           {loading && (
-            <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 rounded-2xl border border-slate-200 min-h-[400px] animate-pulse">
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-white rounded-2xl border border-slate-200 min-h-[400px]">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-medium text-lg">Scanning the live internet...</p>
+              <p className="font-bold text-lg">Scanning the live web...</p>
             </div>
           )}
 
@@ -182,48 +180,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
             <div className="space-y-6 animate-fade-in-up">
               <div className="flex justify-end">
                 {isDemoMode ? (
-                  <div className="bg-brand-50 text-brand-700 px-4 py-2 rounded-xl border border-brand-100 text-sm font-bold">
-                    ✨ Create an account to save this lead
-                  </div>
+                  <button onClick={() => window.location.reload()} className="bg-brand-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">
+                    Sign Up to Save Lead
+                  </button>
                 ) : (
-                  <button 
-                    onClick={handleSaveLead}
-                    disabled={saving || saved}
-                    className="bg-white text-slate-900 border border-slate-200 px-6 py-2 rounded-xl font-bold hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    {saved ? <CheckCircle size={20} className="text-emerald-500" /> : <Save size={20} />}
-                    {saved ? 'Saved to Pipeline' : 'Save Lead'}
+                  <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold">
+                    {saved ? 'Saved' : 'Save Lead'}
                   </button>
                 )}
               </div>
-
               <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-2">Personality</h3>
-                <p className="text-slate-700 leading-relaxed font-medium">{dossier.personality}</p>
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Personality Profile</h4>
+                <p className="text-slate-700 leading-relaxed">{dossier.personality}</p>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-200">
-                  <h3 className="font-bold text-red-600 mb-3">Pain Points</h3>
-                  <ul className="space-y-2">
-                    {dossier.painPoints.map((p, i) => <li key={i} className="text-sm text-slate-600">• {p}</li>)}
-                  </ul>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200">
-                  <h3 className="font-bold text-emerald-600 mb-3">Ice Breakers</h3>
-                  <ul className="space-y-2">
-                    {dossier.iceBreakers.map((p, i) => <li key={i} className="text-sm text-slate-600">• {p}</li>)}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 p-6 rounded-2xl">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Send className="text-brand-400" size={18} /> Email Draft
-                </h3>
-                <div className="text-slate-300 text-sm font-mono whitespace-pre-wrap leading-relaxed">
-                  {dossier.emailDraft}
-                </div>
+              <div className="bg-slate-900 p-6 rounded-2xl text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                {dossier.emailDraft}
               </div>
             </div>
           )}
