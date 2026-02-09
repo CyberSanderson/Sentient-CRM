@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, User, Building2, Briefcase, Send, Loader2, BrainCircuit, Save, CheckCircle, Zap, ShieldAlert } from 'lucide-react';
+import { 
+  User, 
+  Building2, 
+  Briefcase, 
+  Sparkles, 
+  Loader2, 
+  BrainCircuit, 
+  Zap, 
+  Target, 
+  MessageCircle, 
+  Mail 
+} from 'lucide-react';
 import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -23,28 +34,34 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // 🛡️ TRACK DEMO USAGE IN BROWSER
+  // 🛡️ TRACK DEMO USAGE
   const [demoCredits, setDemoCredits] = useState(() => {
     const saved = localStorage.getItem('sentient_demo_credits');
-    return saved !== null ? parseInt(saved) : 2; // Start with 2 demo searches
+    return saved !== null ? parseInt(saved) : 2; 
   });
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🛑 1. THE GATEKEEPER
+    // 🛑 GATEKEEPER LOGIC
     if (isDemoMode) {
       if (demoCredits <= 0) {
-        alert("🚀 Demo Limit Reached! You've used your free demo searches. Sign up for a free account to get 3 more credits and save your leads!");
+        alert("🚀 Demo Limit Reached! Sign up for a free account to get 3 more credits.");
         return;
       }
     } else {
       if (!user) return;
+      // Check Real User Credits
       const userRef = doc(db, 'users', user.id);
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
+
+      // 💰 STRIPE REDIRECT IF OUT OF CREDITS
       if (userData && userData.credits <= 0) {
-        alert("⚠️ Out of Credits: Upgrade to Pro to keep researching!");
+        const wantToUpgrade = window.confirm("⚠️ You are out of credits!\n\nClick OK to upgrade to Pro ($49/mo) and get UNLIMITED research instantly.");
+        if (wantToUpgrade) {
+            window.location.href = 'https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00';
+        }
         return;
       }
     }
@@ -56,13 +73,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       const genAI = new GoogleGenerativeAI(apiKey);
-      
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         tools: [{ googleSearch: {} } as any] 
       });
 
-      const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. Return a valid JSON object with personality, painPoints (array), iceBreakers (array), and emailDraft.`;
+      const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. Return a valid JSON object with personality, painPoints (array of strings), iceBreakers (array of strings), and emailDraft.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -71,7 +87,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const aiData = JSON.parse(text);
       setDossier(aiData);
 
-      // 💰 2. DEDUCT CREDITS
+      // DEDUCT CREDITS
       if (isDemoMode) {
         const newCredits = demoCredits - 1;
         setDemoCredits(newCredits);
@@ -129,6 +145,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* INPUT FORM */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
@@ -161,6 +178,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           </div>
         </div>
 
+        {/* RESULTS AREA */}
         <div className="lg:col-span-2">
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
@@ -184,17 +202,73 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     Sign Up to Save Lead
                   </button>
                 ) : (
-                  <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold">
-                    {saved ? 'Saved' : 'Save Lead'}
+                  <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold transition-all hover:bg-slate-50">
+                    {saved ? 'Saved Successfully' : 'Save to Pipeline'}
                   </button>
                 )}
               </div>
+
+              {/* 1. PERSONALITY CARD */}
               <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Personality Profile</h4>
+                <div className="flex items-center gap-2 mb-3 text-brand-600">
+                  <BrainCircuit size={20} />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
+                </div>
                 <p className="text-slate-700 leading-relaxed">{dossier.personality}</p>
               </div>
-              <div className="bg-slate-900 p-6 rounded-2xl text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                {dossier.emailDraft}
+
+              {/* 2. PAIN POINTS & ICE BREAKERS GRID (RESTORED!) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Pain Points */}
+                <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
+                  <div className="flex items-center gap-2 mb-4 text-red-600">
+                    <Target size={20} />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest">Pain Points</h4>
+                  </div>
+                  <ul className="space-y-3">
+                    {dossier.painPoints?.map((point: string, i: number) => (
+                      <li key={i} className="flex gap-2 text-sm text-slate-700 leading-relaxed">
+                        <span className="text-red-400 mt-1">•</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Ice Breakers */}
+                <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                  <div className="flex items-center gap-2 mb-4 text-blue-600">
+                    <MessageCircle size={20} />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest">Ice Breakers</h4>
+                  </div>
+                  <ul className="space-y-3">
+                    {dossier.iceBreakers?.map((ice: string, i: number) => (
+                      <li key={i} className="flex gap-2 text-sm text-slate-700 leading-relaxed">
+                        <span className="text-blue-400 mt-1">•</span>
+                        {ice}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* 3. EMAIL DRAFT CARD */}
+              <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
+                 <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4">
+                    <Mail size={20} />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
+                  </div>
+                 <div className="text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                  {dossier.emailDraft}
+                </div>
+                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                   <button 
+                     onClick={() => navigator.clipboard.writeText(dossier.emailDraft)}
+                     className="text-xs text-brand-400 hover:text-brand-300 font-bold uppercase tracking-widest flex items-center gap-2"
+                   >
+                     Copy to Clipboard
+                   </button>
+                </div>
               </div>
             </div>
           )}
