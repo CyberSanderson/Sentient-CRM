@@ -163,6 +163,8 @@ const PipelineView: React.FC<PipelineViewProps> = ({ leads }) => {
         isOpen={!!editingLead} 
         onClose={() => setEditingLead(null)} 
         lead={editingLead} 
+
+        // testing.
       />
     </>
   );
