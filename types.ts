@@ -1,56 +1,67 @@
-// Define the stages for the Kanban board
-export enum LeadStage {
-  NEW = 'New',
-  CONTACTED = 'Contacted',
-  MEETING = 'Meeting Scheduled',
-  PROPOSAL = 'Proposal Sent',
-  CLOSED = 'Closed Won'
-}
+// 1. NAVIGATION VIEWS
+// We added pricing and legal pages, so they must be listed here.
+export type View = 
+  | 'dashboard' 
+  | 'pipeline' 
+  | 'leads' 
+  | 'pricing' 
+  | 'settings'
+  | 'privacy' 
+  | 'terms' 
+  | 'refunds';
 
-// 🟢 NEW: This is the missing definition causing your error
+// 2. LEAD STAGES
+// Using a String Union is safer for Firebase than an Enum
+export type LeadStage = 
+  | 'New' 
+  | 'Contacted' 
+  | 'Meeting Scheduled' 
+  | 'Proposal Sent' 
+  | 'Negotiation' 
+  | 'Closed Won' 
+  | 'Closed Lost';
+
+// 3. AI DOSSIER
+// This matches exactly what Gemini returns
 export interface Dossier {
   personality: string;
-  painPoints: string[];
-  iceBreakers: string[];
+  painPoints: string[];   // 👈 Array of strings
+  iceBreakers: string[];  // 👈 Array of strings
   emailDraft: string;
 }
 
-// The main Lead object saved in Firebase
+// 4. LEAD OBJECT
+// The main data structure saved to Firebase
 export interface Lead {
-  id: string;
-  userId: string;
+  id: string;      // Firebase ID
+  userId: string;  // Clerk User ID
+  
+  // Basic Info
   name: string;
   company: string;
   role: string;
-  status: string;
-  stage: LeadStage | string;
+  
+  // CRM Status
+  stage: LeadStage | string; // Flexible string to allow custom stages later
   value: number;
   
-  // Dates can be Firebase Timestamps or JS Dates, so we keep it flexible
-  createdAt: Date | any; 
-  lastContact?: Date;
-  
-  aiScore?: number;
-  
-  // 🟢 Link the Dossier here
+  // The AI Magic
   dossier?: Dossier; 
   
-  // Optional fields
-  contactName?: string; 
+  // Metadata
+  createdAt: any; // Can be Date or Firebase Timestamp
+  lastContact?: any;
   email?: string;
   website?: string;
 }
-// Existing code...
 
-// 🟢 NEW: User Profile for Limits & Plans
+// 5. USER PROFILE
+// For tracking credits and subscriptions
 export interface UserProfile {
   id: string;
   email: string;
   plan: 'free' | 'pro' | 'enterprise';
-  credits: number; // How many dossiers they have left
-  dossiersGenerated: number; // Total lifetime usage
-  lastResetDate: string; // To reset credits daily
-  createdAt: any;
+  credits: number; 
+  dossierCount: number;
+  lastResetDate: string; 
 }
-// Navigation views
-export type View = 'dashboard' | 'pipeline' | 'leads' | 'settings';
