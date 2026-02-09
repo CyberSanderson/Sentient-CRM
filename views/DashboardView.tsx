@@ -9,7 +9,8 @@ import {
   Zap, 
   Target, 
   MessageCircle, 
-  Mail 
+  Mail,
+  ArrowRight
 } from 'lucide-react';
 import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
@@ -78,7 +79,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         tools: [{ googleSearch: {} } as any] 
       });
 
-      const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. Return a valid JSON object with personality, painPoints (array of strings), iceBreakers (array of strings), and emailDraft.`;
+      // 🧠 THE SMARTER PROMPT
+      const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. 
+      Return a valid JSON object with:
+      1. personality (string): A psychological profile.
+      2. painPoints (array of strings): 3 distinct business challenges they likely face.
+      3. iceBreakers (array of strings): 3 specific, non-generic conversation starters based on recent news or interests.
+      4. emailDraft (string): A personalized cold email.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -266,7 +273,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                      onClick={() => navigator.clipboard.writeText(dossier.emailDraft)}
                      className="text-xs text-brand-400 hover:text-brand-300 font-bold uppercase tracking-widest flex items-center gap-2"
                    >
-                     Copy to Clipboard
+                     Copy to Clipboard <ArrowRight size={14} />
                    </button>
                 </div>
               </div>
