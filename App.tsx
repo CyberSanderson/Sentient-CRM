@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
   Users, 
   Trello, 
-  Settings, 
-  Menu, 
-  X, 
   Bot,
   LogOut,
   Search,
@@ -22,12 +18,12 @@ import PipelineView from './views/PipelineView';
 import LandingPage from './views/LandingPage';
 import PricingView from './views/PricingView';
 
-// --- NEW LEGAL PAGES (Folder-based) ---
+// --- LEGAL PAGES ---
 import PrivacyPage from './views/Privacy/PrivacyPage';
 import TermsPage from './views/Terms/TermsPage';
 import RefundsPage from './views/Refunds/RefundsPage';
 
-import { View, Lead, LeadStage } from './types';
+import { View, Lead } from './types';
 import { APP_NAME } from './constants';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -36,15 +32,57 @@ const SentientApp = () => {
   const { user, isSignedIn } = useUser();
   const { signOut, openSignIn, openSignUp } = useClerk();
   
+  // 1. 🧠 SEO ROUTING: Check URL on load
+  const getInitialView = (): View => {
+    const path = window.location.pathname.replace('/', '');
+    if (['privacy', 'terms', 'refunds'].includes(path)) {
+      return path as View;
+    }
+    return 'dashboard';
+  };
+
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState<View>(getInitialView());
   const [leads, setLeads] = useState<Lead[]>([]); 
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // --- 🛡️ SYNC USER & LISTEN TO CREDITS ---
+  // 2. 🔗 URL SYNC: Update URL when view changes
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (currentView === 'dashboard' && path !== '/') {
+      window.history.pushState(null, '', '/');
+    } else if (['privacy', 'terms', 'refunds'].includes(currentView)) {
+      window.history.pushState(null, '', `/${currentView}`);
+    }
+  }, [currentView]);
+
+  // 3. 🛡️ DATA SYNC & STRIPE UPGRADES
   useEffect(() => {
     if (!user || isDemoMode) return;
 
+    // A. Handle Stripe Payment Success
+    const handleUpgrade = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('success') === 'true') {
+        try {
+          const userRef = doc(db, 'users', user.id);
+          // Upgrade to 'pro' + 100 credits
+          await setDoc(userRef, { 
+            plan: 'pro', 
+            credits: 100,
+            updatedAt: new Date()
+          }, { merge: true });
+          
+          // Clear URL
+          window.history.replaceState({}, document.title, "/");
+          alert("Payment successful! You are now a Pro user with 100 credits.");
+        } catch (error) {
+          console.error("Error upgrading user:", error);
+        }
+      }
+    };
+
+    // B. Sync User Profile
     const syncAndListen = async () => {
       const userRef = doc(db, 'users', user.id);
       const userSnap = await getDoc(userRef);
@@ -65,9 +103,12 @@ const SentientApp = () => {
       });
     };
 
+    // Execute Logic
+    handleUpgrade();
     let unsubProfile: any;
     syncAndListen().then(unsub => unsubProfile = unsub);
 
+    // C. Listen to Leads
     const q = query(collection(db, "leads"), where("userId", "==", user.id));
     const unsubLeads = onSnapshot(q, (snapshot) => {
       const loadedLeads = snapshot.docs.map(doc => ({
@@ -89,14 +130,13 @@ const SentientApp = () => {
     setCurrentView('dashboard');
   };
 
-  // 🛠️ THE ROUTING BRAIN (Defined once, correctly)
+  // 4. ROUTER VIEW
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <DashboardView leads={leads} isDemoMode={isDemoMode} />;
       case 'pipeline':  return <PipelineView leads={leads} />;
       case 'leads':     return <LeadsView leads={leads} />;
       case 'pricing':   return <PricingView />;
-      // Mapping to your new folder-based legal pages
       case 'privacy':   return <PrivacyPage onBack={() => setCurrentView(isSignedIn ? 'dashboard' : 'dashboard')} />;
       case 'terms':     return <TermsPage onBack={() => setCurrentView(isSignedIn ? 'dashboard' : 'dashboard')} />;
       case 'refunds':   return <RefundsPage onBack={() => setCurrentView(isSignedIn ? 'dashboard' : 'dashboard')} />;
@@ -104,9 +144,7 @@ const SentientApp = () => {
     }
   };
 
-  // --- AUTH GATE ---
-  // If user is not logged in AND not in demo mode, show the Landing Page
-  // We check for legal views here so they can be seen even if logged out
+  // 5. LANDING PAGE GATE
   const isLegalView = ['privacy', 'terms', 'refunds'].includes(currentView);
 
   if (!isSignedIn && !isDemoMode && !isLegalView) {
@@ -120,9 +158,9 @@ const SentientApp = () => {
     );
   }
 
+  // 6. MAIN APP LAYOUT
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      {/* Sidebar - only show if not viewing a full-screen legal page */}
       {!isLegalView && (
         <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-full shadow-sm z-10">
           <div className="p-6 flex items-center gap-3 border-b border-slate-100">
@@ -169,7 +207,6 @@ const SentientApp = () => {
         </aside>
       )}
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative">
         <div className="h-full overflow-y-auto p-4 md:p-8">
           <div className={`mx-auto h-full ${isLegalView ? 'max-w-none p-0' : 'max-w-7xl'}`}>
