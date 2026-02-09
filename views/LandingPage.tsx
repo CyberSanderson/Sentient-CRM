@@ -169,33 +169,55 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 5. PRICING SECTION */}
-      <section id="pricing" className="py-24 bg-slate-50 border-t border-slate-200">
+      {/* PRICING SECTION */}
+      <section id="pricing" className="py-24 pb-40 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4 tracking-tight">Simple Pricing</h2>
             <p className="text-slate-500">Free to start. Pro for the closers.</p>
           </div>
+          
+          {/* 2-COLUMN GRID (Centered) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="p-10 rounded-3xl border border-slate-200 bg-white">
+            
+            {/* FREE CARD */}
+            <div className="p-10 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all">
               <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest mb-2">Starter</h3>
               <div className="text-4xl font-black text-slate-900 mb-6">$0 <span className="text-sm font-medium text-slate-400">/mo</span></div>
+              <p className="text-slate-500 text-sm mb-8">Perfect for testing the waters.</p>
               <ul className="space-y-4 mb-10 text-sm text-slate-600">
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> 3 Daily Research Credits</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Lead Pipeline</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Basic Pipeline Board</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Standard Support</li>
               </ul>
-              <button onClick={onSignupClick} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all">Get Started</button>
+              <button onClick={onSignupClick} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all">
+                Start Free
+              </button>
             </div>
-            <div className="p-10 rounded-3xl border-2 border-brand-500 bg-slate-900 text-white shadow-2xl shadow-brand-500/10 relative">
-               <div className="absolute top-0 right-0 p-4 bg-brand-500 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-xl">Popular</div>
+
+            {/* PRO CARD (Highlighted) */}
+            <div className="p-10 rounded-3xl border-2 border-brand-500 bg-slate-900 text-white shadow-2xl shadow-brand-500/10 relative transform md:-translate-y-4">
+               <div className="absolute top-0 right-0 p-4 bg-brand-500 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-xl">Most Popular</div>
                <h3 className="font-bold text-brand-400 uppercase text-xs tracking-widest mb-2">Pro Salesman</h3>
                <div className="text-4xl font-black mb-6">$49 <span className="text-sm font-medium text-slate-500">/mo</span></div>
+               <p className="text-slate-400 text-sm mb-8">For closers who want unlimited power.</p>
                <ul className="space-y-4 mb-10 text-sm">
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> 100 Daily Research Credits</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Deep Web Analysis</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Priority Support</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Deep Psychological Analysis</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Priority Email Support</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Unlimited Projects</li>
               </ul>
-              <button onClick={onSignupClick} className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg">Go Unlimited</button>
+              <button onClick={onSignupClick} className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/25">
+                Go Unlimited
+              </button>
             </div>
+          </div>
+
+          {/* ENTERPRISE CATCH-ALL */}
+          <div className="text-center mt-12">
+            <p className="text-slate-500 text-sm">
+              Need API access or team seats? <a href="mailto:sales@sentientprospect.com" className="text-brand-600 font-bold hover:underline">Contact Sales</a>
+            </p>
           </div>
         </div>
       </section>
