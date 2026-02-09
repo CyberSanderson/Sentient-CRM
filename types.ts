@@ -1,5 +1,4 @@
 // 1. NAVIGATION VIEWS
-// We added pricing and legal pages, so they must be listed here.
 export type View = 
   | 'dashboard' 
   | 'pipeline' 
@@ -10,53 +9,46 @@ export type View =
   | 'terms' 
   | 'refunds';
 
-// 2. LEAD STAGES
-// Using a String Union is safer for Firebase than an Enum
-export type LeadStage = 
-  | 'New' 
-  | 'Contacted' 
-  | 'Meeting Scheduled' 
-  | 'Proposal Sent' 
-  | 'Negotiation' 
-  | 'Closed Won' 
-  | 'Closed Lost';
+// 2. LEAD STAGES (Restored to Enum to fix Pipeline errors)
+export enum LeadStage {
+  NEW = 'New',
+  CONTACTED = 'Contacted',
+  MEETING = 'Meeting Scheduled',
+  PROPOSAL = 'Proposal Sent',
+  NEGOTIATION = 'Negotiation',
+  CLOSED_WON = 'Closed Won',
+  CLOSED_LOST = 'Closed Lost'
+}
 
-// 3. AI DOSSIER
-// This matches exactly what Gemini returns
+// 3. AI DOSSIER (Updated with new fields)
 export interface Dossier {
   personality: string;
-  painPoints: string[];   // 👈 Array of strings
-  iceBreakers: string[];  // 👈 Array of strings
+  painPoints: string[];   // ✅ Required for Dashboard
+  iceBreakers: string[];  // ✅ Required for Dashboard
   emailDraft: string;
 }
 
 // 4. LEAD OBJECT
-// The main data structure saved to Firebase
 export interface Lead {
-  id: string;      // Firebase ID
-  userId: string;  // Clerk User ID
-  
-  // Basic Info
+  id: string;
+  userId: string;
   name: string;
   company: string;
   role: string;
   
-  // CRM Status
-  stage: LeadStage | string; // Flexible string to allow custom stages later
+  // Allow both Enum and String to be safe
+  stage: LeadStage | string; 
   value: number;
   
-  // The AI Magic
   dossier?: Dossier; 
   
-  // Metadata
-  createdAt: any; // Can be Date or Firebase Timestamp
+  createdAt: any; 
   lastContact?: any;
   email?: string;
   website?: string;
 }
 
 // 5. USER PROFILE
-// For tracking credits and subscriptions
 export interface UserProfile {
   id: string;
   email: string;
@@ -64,5 +56,4 @@ export interface UserProfile {
   credits: number; 
   dossierCount: number;
   lastResetDate: string; 
-  // 3. pushing code again
 }
