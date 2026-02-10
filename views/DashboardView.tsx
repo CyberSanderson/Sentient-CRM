@@ -4,8 +4,8 @@ import {
   Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
-import { signInWithCredential, OAuthProvider } from 'firebase/auth'; // 👈 New Imports
-import { db, auth } from '../lib/firebase'; 
+import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
+import { db, auth } from '../lib/firebase'; // 👈 Importing auth
 import { Lead, Dossier } from '../types'; 
 import { useAuth, useUser } from '@clerk/clerk-react'; 
 
@@ -41,8 +41,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
-        const snap = await getDocs(collection(db, 'users'));
-        setAdminUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        try {
+            const snap = await getDocs(collection(db, 'users'));
+            setAdminUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (e) { console.error("Admin fetch failed", e); }
       };
       fetchUsers();
     }
@@ -50,13 +52,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
   const giftCredits = async (userId: string) => {
     if(!window.confirm("Gift 100 Credits & Reset Usage?")) return;
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { usageCount: 0, plan: 'pro' }); 
-    alert("Grant Successful!");
-    window.location.reload();
+    try {
+        const userRef = doc(db, 'users', userId);
+        await updateDoc(userRef, { usageCount: 0, plan: 'pro' }); 
+        alert("Grant Successful!");
+        window.location.reload();
+    } catch (e) { alert("Grant failed"); }
   };
 
-  // 2. RESEARCH LOGIC (THE FIX IS HERE)
+  // 2. RESEARCH LOGIC (CRASH PROOF VERSION)
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -79,27 +83,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
     // B. Live User (The Secure Handshake)
     try {
+      // 🛑 SAFETY CHECK: Prevent Blank Screen Crash
+      if (!auth) {
+        throw new Error("Firebase Auth is not initialized. Check src/lib/firebase.ts export.");
+      }
+
       // Step 1: Get the Clerk Token
       const clerkToken = await getToken({ template: 'firebase' });
-      if (!clerkToken) throw new Error("Clerk token missing");
+      if (!clerkToken) throw new Error("Clerk token missing. Check Clerk > JWT Templates.");
 
-      // Step 2: Trade it for a Firebase Token (The Handshake)
-      // Note: 'oidc.clerk' must match the Provider ID you set in Firebase Console!
+      // Step 2: Trade it for a Firebase Token
       const provider = new OAuthProvider('oidc.clerk'); 
       const credential = provider.credential({ idToken: clerkToken });
       
       // Sign in to Firebase locally
       const firebaseResult = await signInWithCredential(auth, credential);
-      
-      // Step 3: Get the Google-signed Token
       const firebaseIdToken = await firebaseResult.user.getIdToken();
 
-      // Step 4: Send the GOOGLE Token to Backend
+      // Step 3: Send the GOOGLE Token to Backend
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${firebaseIdToken}` // 👈 Sending the correct token now
+            'Authorization': `Bearer ${firebaseIdToken}` 
         },
         body: JSON.stringify({ prospectName: name, company, role })
       });
@@ -120,7 +126,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
     } catch (error: any) {
       console.error("Handshake Error:", error);
-      alert(`Connection Error: ${error.message || "Please refresh and try again."}`);
+      alert(`System Error: ${error.message || "Please refresh and try again."}`);
     } finally {
       setLoading(false);
     }
