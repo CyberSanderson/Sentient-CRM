@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // 👈 1. ADD THIS IMPORT
 
 // 🔒 Now pulling from .env (Safe!)
 const firebaseConfig = {
@@ -16,3 +17,6 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Database
 export const db = getFirestore(app);
+
+// Initialize Auth
+export const auth = getAuth(app); // 👈 2. ADD THIS EXPORT
