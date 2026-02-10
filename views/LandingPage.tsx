@@ -99,7 +99,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex flex-col items-center gap-4 mb-8 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-600 text-xs font-semibold shadow-sm">
               <Zap size={14} className="fill-brand-500 text-brand-500" />
-              <span>Gemini 2.5 Integration Live</span>
+              <span>Sentient AI Engine Live</span>
             </div>
             <div className="flex items-center gap-1 text-amber-400">
                 {[...Array(5)].map((_, i) => <Star key={i} size={16} className="fill-amber-400" />)}
