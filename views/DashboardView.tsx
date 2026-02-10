@@ -4,7 +4,8 @@ import {
   Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
-import { db } from '../lib/firebase'; 
+import { signInWithCredential, OAuthProvider } from 'firebase/auth'; // 👈 New Imports
+import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useAuth, useUser } from '@clerk/clerk-react'; 
 
@@ -14,18 +15,15 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
-  // --- CLERK HOOKS ---
   const { getToken, isLoaded: authLoaded } = useAuth();
   const { user } = useUser();
 
-  // --- ADMIN STATE ---
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // 🔒 REPLACE WITH YOUR REAL EMAIL
-  const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === "YOUR_EMAIL@GMAIL.COM"; 
 
-  // --- RESEARCH STATE ---
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
@@ -33,13 +31,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  // Demo credits for logged-out/demo users
+  
   const [demoCredits, setDemoCredits] = useState(() => {
     const saved = localStorage.getItem('sentient_demo_credits');
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. 🛡️ ADMIN: Fetch Users
+  // 1. ADMIN LOGIC
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -50,7 +48,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     }
   }, [isAdmin]);
 
-  // 2. 🛡️ ADMIN: Gift Credits
   const giftCredits = async (userId: string) => {
     if(!window.confirm("Gift 100 Credits & Reset Usage?")) return;
     const userRef = doc(db, 'users', userId);
@@ -59,7 +56,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     window.location.reload();
   };
 
-  // 3. 🚀 RESEARCH LOGIC
+  // 2. RESEARCH LOGIC (THE FIX IS HERE)
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -68,7 +65,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // A. Demo Mode (Local Only)
+    // A. Demo Mode
     if (isDemoMode) {
       if (demoCredits <= 0) {
         alert("🚀 Demo Limit Reached! Sign up for a free account.");
@@ -80,29 +77,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       return;
     }
 
-    // B. Live User (Secure Backend)
+    // B. Live User (The Secure Handshake)
     try {
-      // 🎟️ Get the Token using the 'firebase' template
-      const token = await getToken({ template: 'firebase' });
+      // Step 1: Get the Clerk Token
+      const clerkToken = await getToken({ template: 'firebase' });
+      if (!clerkToken) throw new Error("Clerk token missing");
 
-      if (!token) {
-        alert("Session invalid. Please check your Clerk settings or sign in again.");
-        setLoading(false);
-        return;
-      }
+      // Step 2: Trade it for a Firebase Token (The Handshake)
+      // Note: 'oidc.clerk' must match the Provider ID you set in Firebase Console!
+      const provider = new OAuthProvider('oidc.clerk'); 
+      const credential = provider.credential({ idToken: clerkToken });
+      
+      // Sign in to Firebase locally
+      const firebaseResult = await signInWithCredential(auth, credential);
+      
+      // Step 3: Get the Google-signed Token
+      const firebaseIdToken = await firebaseResult.user.getIdToken();
 
-      // 🛰️ Call Secure Backend
+      // Step 4: Send the GOOGLE Token to Backend
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
+            'Authorization': `Bearer ${firebaseIdToken}` // 👈 Sending the correct token now
         },
-        body: JSON.stringify({ 
-            prospectName: name, 
-            company: company, 
-            role: role 
-        })
+        body: JSON.stringify({ prospectName: name, company, role })
       });
 
       const data = await response.json();
@@ -120,8 +119,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       setDossier(data);
 
     } catch (error: any) {
-      console.error("Frontend Error:", error);
-      alert("System Error. Please check your connection.");
+      console.error("Handshake Error:", error);
+      alert(`Connection Error: ${error.message || "Please refresh and try again."}`);
     } finally {
       setLoading(false);
     }
@@ -158,32 +157,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
               {showAdminPanel ? 'Collapse' : 'Expand'}
             </button>
           </div>
-
           {showAdminPanel && (
             <div className="overflow-x-auto bg-slate-800 rounded-xl border border-slate-700">
               <table className="w-full text-left text-sm text-slate-300">
                 <thead className="bg-slate-900/50 text-slate-500 uppercase font-bold text-xs">
-                  <tr>
-                    <th className="p-3">User</th>
-                    <th className="p-3">Credits Used</th>
-                    <th className="p-3 text-right">Action</th>
-                  </tr>
+                  <tr><th className="p-3">User</th><th className="p-3">Credits</th><th className="p-3 text-right">Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
                   {adminUsers.map(u => (
                     <tr key={u.id} className="hover:bg-slate-700/50">
-                      <td className="p-3">
-                        <div className="font-bold text-white">{u.email}</div>
-                        <div className="text-[10px] opacity-40">{u.id}</div>
-                      </td>
+                      <td className="p-3"><div className="font-bold text-white">{u.email}</div></td>
                       <td className="p-3 font-mono text-yellow-400">{u.usageCount || 0}</td>
                       <td className="p-3 text-right">
-                        <button 
-                          onClick={() => giftCredits(u.id)}
-                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all border border-emerald-500/20"
-                        >
-                          Gift Pro
-                        </button>
+                        <button onClick={() => giftCredits(u.id)} className="text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded text-xs font-bold">Gift Pro</button>
                       </td>
                     </tr>
                   ))}
@@ -215,120 +201,56 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
               <div className="space-y-3">
-                <div className="relative">
-                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
-                </div>
-                <div className="relative">
-                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} required />
-                </div>
-                <div className="relative">
-                   <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                   <input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-brand-500" placeholder="Job Title" value={role} onChange={e => setRole(e.target.value)} />
-                </div>
+                 <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required /></div>
+                 <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} required /></div>
+                 <div className="relative"><Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Job Title" value={role} onChange={e => setRole(e.target.value)} /></div>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={loading || (!authLoaded)}
-                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
-                  isDemoMode ? 'bg-indigo-600' : 'bg-brand-600 hover:bg-brand-500'
-                }`}
-              >
-                {!authLoaded ? 'Connecting...' : loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                {!authLoaded ? 'Please Wait' : loading ? 'Analyzing...' : 'Analyze Prospect'}
+              <button type="submit" disabled={loading} className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
+                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                {loading ? 'Analyzing...' : 'Analyze Prospect'}
               </button>
             </form>
           </div>
         </div>
 
         <div className="lg:col-span-2">
-          {!dossier && !loading && (
+            {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
-              <BrainCircuit size={48} className="mb-4 opacity-10" />
-              <p className="font-medium text-center px-4">Enter details to generate your first Sentient AI dossier</p>
+                <BrainCircuit size={48} className="mb-4 opacity-10" />
+                <p className="font-medium">Enter details to generate AI dossier</p>
             </div>
-          )}
-
-          {loading && (
+            )}
+            {loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-white rounded-2xl border border-slate-200 min-h-[400px]">
-              <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-bold text-lg animate-pulse">Scanning the live web...</p>
+                <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
+                <p className="font-bold text-lg">Scanning the live web...</p>
             </div>
-          )}
-
-          {dossier && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="flex justify-end">
-                <button 
-                  onClick={handleSaveLead} 
-                  disabled={saving || saved} 
-                  className="bg-white border px-6 py-2 rounded-xl font-bold transition-all hover:bg-slate-50 shadow-sm text-sm"
-                >
-                  {saved ? 'Saved Successfully' : 'Save to Pipeline'}
-                </button>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
-                <div className="flex items-center gap-2 mb-3 text-brand-600">
-                  <BrainCircuit size={20} />
-                  <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
+            )}
+            {dossier && (
+                <div className="space-y-6 animate-fade-in-up">
+                    <div className="flex justify-end">
+                        <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold hover:bg-slate-50">
+                         {saved ? 'Saved' : 'Save Lead'}
+                        </button>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
+                        <p className="text-slate-700">{dossier.personality}</p>
+                    </div>
+                    {/* Pain Points & Ice Breakers */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
+                             <ul className="space-y-3">{dossier.painPoints?.map((p: string, i: number) => <li key={i} className="text-sm text-slate-700">• {p}</li>)}</ul>
+                        </div>
+                        <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+                             <ul className="space-y-3">{dossier.iceBreakers?.map((p: string, i: number) => <li key={i} className="text-sm text-slate-700">• {p}</li>)}</ul>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
+                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{dossier.emailDraft}</div>
+                    </div>
                 </div>
-                <p className="text-slate-700 leading-relaxed">{dossier.personality}</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
-                  <div className="flex items-center gap-2 mb-4 text-red-600">
-                    <Target size={20} />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest">Pain Points</h4>
-                  </div>
-                  <ul className="space-y-3">
-                    {dossier.painPoints?.map((point: string, i: number) => (
-                      <li key={i} className="flex gap-2 text-sm text-slate-700 leading-relaxed">
-                        <span className="text-red-400 mt-1">•</span>
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-                  <div className="flex items-center gap-2 mb-4 text-blue-600">
-                    <MessageCircle size={20} />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest">Ice Breakers</h4>
-                  </div>
-                  <ul className="space-y-3">
-                    {dossier.iceBreakers?.map((ice: string, i: number) => (
-                      <li key={i} className="flex gap-2 text-sm text-slate-700 leading-relaxed">
-                        <span className="text-blue-400 mt-1">•</span>
-                        {ice}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
-                 <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4">
-                    <Mail size={20} />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
-                  </div>
-                  <div className="text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
-                  {dossier.emailDraft}
-                </div>
-                <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end">
-                   <button 
-                     onClick={() => navigator.clipboard.writeText(dossier.emailDraft)}
-                     className="text-xs text-brand-400 hover:text-brand-300 font-bold uppercase tracking-widest flex items-center gap-2"
-                   >
-                     Copy to Clipboard <ArrowRight size={14} />
-                   </button>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>
