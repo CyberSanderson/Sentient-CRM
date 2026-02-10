@@ -4,9 +4,9 @@ import {
   Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
-import { db, auth } from '../lib/firebase'; 
+import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
-import { onAuthStateChanged } from 'firebase/auth';
+import { useAuth, useUser } from '@clerk/clerk-react'; // 👈 Using Clerk for Auth
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -14,28 +14,16 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
-  // --- AUTH & SESSION STATE ---
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true); // 👈 Critical: Prevents race conditions
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser({ ...currentUser, id: currentUser.uid });
-      } else {
-        setUser(null);
-      }
-      setAuthLoading(false); // Stop waiting once Firebase answers
-    });
-    return () => unsubscribe();
-  }, []);
+  // --- CLERK AUTH ---
+  const { getToken, isLoaded: authLoaded } = useAuth();
+  const { user } = useUser();
 
   // --- ADMIN STATE ---
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
-  // 🔒 REPLACE THIS WITH YOUR REAL EMAIL TO ACCESS THE COMMAND CENTER
-  const isAdmin = user?.email === "YOUR_EMAIL@GMAIL.COM"; 
+  // 🔒 Replace with your actual login email
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
   // --- RESEARCH STATE ---
   const [name, setName] = useState('');
@@ -46,7 +34,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // 1. 🛡️ ADMIN: Fetch Users (Only runs if you are admin)
+  // 1. 🛡️ ADMIN: Fetch Users
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -57,7 +45,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     }
   }, [isAdmin]);
 
-  // 2. 🛡️ ADMIN: Gift Credits Function
+  // 2. 🛡️ ADMIN: Gift Credits
   const giftCredits = async (userId: string) => {
     if(!window.confirm("Gift 100 Credits & Reset Usage?")) return;
     const userRef = doc(db, 'users', userId);
@@ -66,29 +54,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     window.location.reload();
   };
 
-  // 3. 🚀 RESEARCH LOGIC (Secure Handshake)
+  // 3. 🚀 RESEARCH LOGIC (Clerk -> Backend Handshake)
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authLoading) return; // Block click if session isn't synced yet
+    if (!authLoaded) return;
 
     setLoading(true);
     setDossier(null);
     setSaved(false);
 
     try {
-      // 🎟️ Get the current user directly from Firebase service
-      const currentUser = auth.currentUser;
+      // 🕵️ Get the token from Clerk (the source of truth)
+      const token = await getToken();
 
-      if (!currentUser) {
-        alert("Session not detected. Please log in again.");
+      if (!token) {
+        alert("Session not detected. Please log in again via Clerk.");
         setLoading(false);
         return;
       }
 
-      // 🔑 Get a fresh secure ID token (The Handshake)
-      const token = await currentUser.getIdToken(true);
-
-      // 🛰️ Call the Secure Backend Endpoint
+      // 🛰️ Call Secure Backend
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
@@ -104,23 +89,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
       const data = await response.json();
 
-      // 🛑 Handle Server-Side Errors (Limits, etc.)
       if (!response.ok) {
         if (response.status === 403) {
-            const wantToUpgrade = window.confirm(data.error || "Daily limit reached. Upgrade to Pro?");
+            const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
             if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00';
         } else {
-            alert(data.error || "Analysis failed. Check logs.");
+            alert(data.error || "Analysis failed.");
         }
         return;
       }
 
-      // ✅ Success
       setDossier(data);
 
     } catch (error: any) {
-      console.error("Frontend Analysis Error:", error);
-      alert("System Error. Please check your connection and try again.");
+      console.error("Analysis Error:", error);
+      alert("System Error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -199,7 +182,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
           <p className="text-slate-500 text-sm">Real-time intelligence via Sentient AI Engine.</p>
         </div>
-        {authLoading && (
+        {!authLoaded && (
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
             <Loader2 size={16} className="animate-spin text-slate-400" />
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Session...</span>
@@ -208,7 +191,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* INPUT FORM */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
@@ -229,22 +211,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
               <button 
                 type="submit" 
-                disabled={loading || authLoading}
+                disabled={loading || !authLoaded}
                 className="w-full py-4 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
               >
-                {authLoading ? 'Verifying Session...' : loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                {authLoading ? 'Please wait...' : loading ? 'Analyzing...' : 'Analyze Prospect'}
+                {!authLoaded ? 'Verifying...' : loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                {!authLoaded ? 'Waiting for Clerk...' : loading ? 'Analyzing...' : 'Analyze Prospect'}
               </button>
             </form>
           </div>
         </div>
 
-        {/* RESULTS AREA */}
         <div className="lg:col-span-2">
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
               <BrainCircuit size={48} className="mb-4 opacity-10" />
-              <p className="font-medium">Enter details to generate Sentient AI dossier</p>
+              <p className="font-medium text-center px-4">Enter details to generate your first Sentient AI dossier</p>
             </div>
           )}
 
