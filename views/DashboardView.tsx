@@ -204,7 +204,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
-          <p className="text-slate-500 text-sm">Real-time intelligence via Gemini Search.</p>
+          <p className="text-slate-500 text-sm">Real-time intelligence via Sentient AI Engine Search.</p>
         </div>
         {isDemoMode && (
           <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
