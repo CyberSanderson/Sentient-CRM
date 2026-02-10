@@ -1,8 +1,7 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // 👈 1. ADD THIS IMPORT
+import { getAuth } from "firebase/auth";
 
-// 🔒 Now pulling from .env (Safe!)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,11 +11,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Singleton pattern: prevent re-initializing in development
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Database
 export const db = getFirestore(app);
-
-// Initialize Auth
-export const auth = getAuth(app); // 👈 2. ADD THIS EXPORT
+export const auth = getAuth(app);
