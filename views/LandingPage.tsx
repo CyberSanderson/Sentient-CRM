@@ -218,6 +218,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* ENTERPRISE CATCH-ALL */}
         
+        
           <div className="text-center mt-12">
             <p className="text-slate-500 text-sm">
               Need API access or team seats? <a href="mailto:sales@sentientprospect.com" className="text-brand-600 font-bold hover:underline">Contact Sales</a>

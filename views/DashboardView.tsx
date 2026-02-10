@@ -87,6 +87,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         })
       });
 
+       // --- Checking ---
+
       const data = await response.json();
 
       if (!response.ok) {
