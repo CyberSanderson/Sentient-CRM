@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, AlertTriangle
+  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
@@ -9,12 +9,24 @@ import { db, auth } from '../lib/firebase';
 import { Lead, Dossier } from '../types'; 
 import { useAuth, useUser } from '@clerk/clerk-react'; 
 
-// 🛡️ HELPER: Prevents "Blank Screen" crashes if AI returns bad data
+// 🛡️ HELPER 1: Handle Lists Safely
 const safeList = (data: any): string[] => {
   if (!data) return [];
   if (Array.isArray(data)) return data;
-  if (typeof data === 'string') return [data]; // If it's a string, wrap it in a list
+  if (typeof data === 'string') return [data];
+  if (typeof data === 'object') return Object.values(data).map(v => String(v));
   return ["No data available"];
+};
+
+// 🛡️ HELPER 2: Handle Text/Objects Safely (The Fix for Error #31)
+const renderSafe = (data: any) => {
+  if (!data) return "No analysis available.";
+  if (typeof data === 'string') return data;
+  // If AI returns an object (like the error showed), extract the useful text
+  if (typeof data === 'object') {
+    return data.style || data.communication || data.summary || Object.values(data).join(". ");
+  }
+  return String(data);
 };
 
 interface DashboardViewProps {
@@ -91,14 +103,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
     // B. Live User
     try {
-      // 🛑 CRITICAL CHECK: If this is missing, the app will alert instead of crashing
-      if (!auth) {
-        throw new Error("Config Error: 'auth' is missing from src/lib/firebase.ts");
-      }
+      // 🛑 Safety Check
+      if (!auth) throw new Error("Firebase Auth not initialized in src/lib/firebase.ts");
 
       // Step 1: Clerk Token
       const clerkToken = await getToken({ template: 'firebase' });
-      if (!clerkToken) throw new Error("Clerk token missing. Check Clerk > JWT Templates.");
+      if (!clerkToken) throw new Error("Clerk token missing.");
 
       // Step 2: Firebase Handshake
       const provider = new OAuthProvider('oidc.clerk'); 
@@ -248,16 +258,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                         </button>
                     </div>
 
-                    {/* PERSONALITY SECTION */}
+                    {/* PERSONALITY SECTION (CRASH PROOF) */}
                     <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
                         <div className="flex items-center gap-2 mb-3 text-brand-600">
                           <BrainCircuit size={20} />
                           <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
                         </div>
-                        <p className="text-slate-700">{dossier.personality || "Analysis complete."}</p>
+                        {/* 🌟 The Universal Adapter is used here: */}
+                        <p className="text-slate-700">{renderSafe(dossier.personality)}</p>
                     </div>
 
-                    {/* PAIN POINTS & ICE BREAKERS - NOW CRASH PROOF */}
+                    {/* PAIN POINTS (CRASH PROOF) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
                              <div className="flex items-center gap-2 mb-4 text-red-600">
@@ -293,7 +304,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                            <Mail size={20} />
                            <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
                         </div>
-                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{dossier.emailDraft || "No draft generated."}</div>
+                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{renderSafe(dossier.emailDraft)}</div>
                     </div>
                 </div>
             )}
