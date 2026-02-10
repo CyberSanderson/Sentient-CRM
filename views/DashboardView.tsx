@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
+  User, 
+  Building2, 
+  Briefcase, 
+  Sparkles, 
+  Loader2, 
+  BrainCircuit, 
+  Target, 
+  MessageCircle, 
+  Mail,
+  ArrowRight,
+  Shield, // 👈 Admin Icon
+  Gift,   // 👈 Admin Icon
+  Zap
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
+import { collection, addDoc, doc, getDoc, updateDoc, increment, getDocs } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
-import { useAuth, useUser } from '@clerk/clerk-react'; // 👈 Using Clerk for Auth
+import { useUser } from '@clerk/clerk-react'; 
+import { GoogleGenerativeAI } from "@google/generative-ai"; 
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -14,16 +26,14 @@ interface DashboardViewProps {
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
-  // --- CLERK AUTH ---
-  const { getToken, isLoaded: authLoaded } = useAuth();
-  const { user } = useUser();
-
+  const { user } = useUser(); 
+  
   // --- ADMIN STATE ---
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
-  // 🔒 Replace with your actual login email
-  const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
+  // 🔒 REPLACE WITH YOUR EXACT EMAIL
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === "YOUR_EMAIL@GMAIL.COM"; 
 
   // --- RESEARCH STATE ---
   const [name, setName] = useState('');
@@ -33,8 +43,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [demoCredits, setDemoCredits] = useState(() => {
+    const saved = localStorage.getItem('sentient_demo_credits');
+    return saved !== null ? parseInt(saved) : 2; 
+  });
 
-  // 1. 🛡️ ADMIN: Fetch Users
+  // 1. 🛡️ ADMIN: Fetch Users (Only runs if you are admin)
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -45,74 +59,82 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     }
   }, [isAdmin]);
 
-  // 2. 🛡️ ADMIN: Gift Credits
+  // 2. 🛡️ ADMIN: Gift Credits Function
   const giftCredits = async (userId: string) => {
-    if(!window.confirm("Gift 100 Credits & Reset Usage?")) return;
+    if(!window.confirm("Gift 100 Credits?")) return;
     const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { usageCount: 0, plan: 'pro' }); 
+    await updateDoc(userRef, { credits: increment(100), plan: 'pro' });
     alert("Grant Successful!");
     window.location.reload();
   };
 
-  // 3. 🚀 RESEARCH LOGIC (Clerk -> Backend Handshake)
+  // 3. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!authLoaded) return;
+
+    if (isDemoMode) {
+      if (demoCredits <= 0) {
+        alert("🚀 Demo Limit Reached! Sign up for a free account.");
+        return;
+      }
+    } else {
+      if (!user) return;
+      const userRef = doc(db, 'users', user.id);
+      const userSnap = await getDoc(userRef);
+      const userData = userSnap.data();
+
+      if (userData && userData.credits <= 0) {
+        const wantToUpgrade = window.confirm("⚠️ Out of credits! Upgrade to Pro ($49)?");
+        if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00';
+        return;
+      }
+    }
 
     setLoading(true);
     setDossier(null);
     setSaved(false);
 
     try {
-      // 🕵️ Get the token from Clerk (the source of truth)
-      const token = await getToken();
-
-      if (!token) {
-        alert("Session not detected. Please log in again via Clerk.");
-        setLoading(false);
-        return;
-      }
-
-      // 🛰️ Call Secure Backend
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ 
-            prospectName: name, 
-            company: company, 
-            role: role 
-        })
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash", 
+        tools: [{ googleSearch: {} } as any] 
       });
 
-       // --- Checking ---
+      const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. 
+      Return a valid JSON object with:
+      1. personality (string): A psychological profile.
+      2. painPoints (array of strings): 3 distinct business challenges.
+      3. iceBreakers (array of strings): 3 specific conversation starters.
+      4. emailDraft (string): A personalized cold email.`;
 
-      const data = await response.json();
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const aiData = JSON.parse(text);
+      setDossier(aiData);
 
-      if (!response.ok) {
-        if (response.status === 403) {
-            const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
-            if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00';
-        } else {
-            alert(data.error || "Analysis failed.");
-        }
-        return;
+      if (isDemoMode) {
+        const newCredits = demoCredits - 1;
+        setDemoCredits(newCredits);
+        localStorage.setItem('sentient_demo_credits', newCredits.toString());
+      } else if (user) {
+        const userRef = doc(db, 'users', user.id);
+        await updateDoc(userRef, { credits: increment(-1) });
       }
 
-      setDossier(data);
-
     } catch (error: any) {
-      console.error("Analysis Error:", error);
-      alert("System Error. Please check your connection.");
+      console.error("AI Analysis failed", error);
+      alert("Analysis failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveLead = async () => {
-    if (!dossier || !user) return;
+    if (!dossier || !user || isDemoMode) return;
     setSaving(true);
     try {
       await addDoc(collection(db, 'leads'), {
@@ -120,14 +142,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         name, company, role, stage: 'New', dossier, value: 0, createdAt: new Date()
       });
       setSaved(true);
-    } catch (error) { alert("Failed to save lead."); } 
+    } catch (error) { alert("Failed to save."); } 
     finally { setSaving(false); }
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
-      {/* 🛡️ GOD MODE PANEL */}
+      {/* 🛡️ GOD MODE PANEL (Only Visible to YOU) */}
       {isAdmin && (
         <div className="bg-slate-900 rounded-2xl p-6 border-2 border-red-900 shadow-2xl mb-8">
           <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => setShowAdminPanel(!showAdminPanel)}>
@@ -135,7 +157,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
               <Shield className="text-red-500" size={24} />
               <div>
                 <h2 className="text-white font-black text-lg">COMMAND CENTER</h2>
-                <p className="text-red-400 text-xs font-bold uppercase tracking-widest">Administrator Access</p>
+                <p className="text-red-400 text-xs font-bold uppercase tracking-widest">Administrator Access Granted</p>
               </div>
             </div>
             <button className="text-slate-400 text-sm hover:text-white">
@@ -149,7 +171,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <thead className="bg-slate-900/50 text-slate-500 uppercase font-bold text-xs">
                   <tr>
                     <th className="p-3">User</th>
-                    <th className="p-3">Credits Used</th>
+                    <th className="p-3">Credits</th>
                     <th className="p-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -158,15 +180,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     <tr key={u.id} className="hover:bg-slate-700/50">
                       <td className="p-3">
                         <div className="font-bold text-white">{u.email}</div>
-                        <div className="text-[10px] opacity-40">{u.id}</div>
+                        <div className="text-[10px] opacity-50">{u.id}</div>
                       </td>
-                      <td className="p-3 font-mono text-yellow-400">{u.usageCount || 0}</td>
+                      <td className="p-3 font-mono text-yellow-400">{u.credits}</td>
                       <td className="p-3 text-right">
                         <button 
                           onClick={() => giftCredits(u.id)}
-                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all border border-emerald-500/20"
+                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ml-auto border border-emerald-500/20"
                         >
-                          Gift Pro
+                          <Gift size={12} /> Gift 100
                         </button>
                       </td>
                     </tr>
@@ -178,21 +200,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       )}
 
-      {/* HEADER */}
+      {/* STANDARD HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
-          <p className="text-slate-500 text-sm">Real-time intelligence via Sentient AI Engine.</p>
+          <p className="text-slate-500 text-sm">Real-time intelligence via Gemini Search.</p>
         </div>
-        {!authLoaded && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
-            <Loader2 size={16} className="animate-spin text-slate-400" />
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing Session...</span>
+        {isDemoMode && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
+            <Zap size={16} className="text-brand-600 fill-brand-600" />
+            <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
+              {demoCredits} Demo Searches Left
+            </span>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* INPUT FORM */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
@@ -213,41 +238,46 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
               <button 
                 type="submit" 
-                disabled={loading || !authLoaded}
-                className="w-full py-4 bg-brand-600 hover:bg-brand-500 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+                disabled={loading || (isDemoMode && demoCredits <= 0)}
+                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  isDemoMode ? 'bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300' : 'bg-brand-600 hover:bg-brand-500'
+                }`}
               >
-                {!authLoaded ? 'Verifying...' : loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                {!authLoaded ? 'Waiting for Clerk...' : loading ? 'Analyzing...' : 'Analyze Prospect'}
+                {loading ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
+                {loading ? 'Searching...' : isDemoMode && demoCredits <= 0 ? 'Limit Reached' : 'Analyze Prospect'}
               </button>
             </form>
           </div>
         </div>
 
+        {/* RESULTS AREA */}
         <div className="lg:col-span-2">
           {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
               <BrainCircuit size={48} className="mb-4 opacity-10" />
-              <p className="font-medium text-center px-4">Enter details to generate your first Sentient AI dossier</p>
+              <p className="font-medium">Enter details to generate AI dossier</p>
             </div>
           )}
 
           {loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-white rounded-2xl border border-slate-200 min-h-[400px]">
               <Loader2 size={48} className="animate-spin text-brand-500 mb-4" />
-              <p className="font-bold text-lg animate-pulse">Scanning the live web...</p>
+              <p className="font-bold text-lg">Scanning the live web...</p>
             </div>
           )}
 
           {dossier && (
             <div className="space-y-6 animate-fade-in-up">
               <div className="flex justify-end">
-                <button 
-                  onClick={handleSaveLead} 
-                  disabled={saving || saved} 
-                  className="bg-white border px-6 py-2 rounded-xl font-bold transition-all hover:bg-slate-50 shadow-sm text-sm"
-                >
-                  {saved ? 'Saved Successfully' : 'Save to Pipeline'}
-                </button>
+                {isDemoMode ? (
+                  <button onClick={() => window.location.reload()} className="bg-brand-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg">
+                    Sign Up to Save Lead
+                  </button>
+                ) : (
+                  <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold transition-all hover:bg-slate-50">
+                    {saved ? 'Saved Successfully' : 'Save to Pipeline'}
+                  </button>
+                )}
               </div>
 
               <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
@@ -295,7 +325,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     <Mail size={20} />
                     <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
                   </div>
-                  <div className="text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                 <div className="text-slate-300 font-mono text-sm leading-relaxed whitespace-pre-wrap">
                   {dossier.emailDraft}
                 </div>
                 <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end">
