@@ -119,11 +119,10 @@ const SentientApp = () => {
   if (!isSignedIn && !isDemoMode && !isLegalView) {
     return (
       <LandingPage 
-        onLoginClick={openSignIn}       // 👈 Passes the login function
-        onSignupClick={openSignUp}      // 👈 Passes the signup function
-        onDemoStart={() => setIsDemoMode(true)} // (Might be onDemoClick depending on your file)
-        // If your LandingPage uses onDemoClick instead, swap the line above for:
-        // onDemoClick={() => setIsDemoMode(true)}
+        onLoginClick={openSignIn}       
+        onSignupClick={openSignUp}      
+        onDemoClick={() => setIsDemoMode(true)} // 👈 Renamed to match LandingPage
+        setCurrentView={setCurrentView}         // 👈 Added this missing prop!
       />
     );
   }
