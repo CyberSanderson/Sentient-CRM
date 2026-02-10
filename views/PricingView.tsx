@@ -3,7 +3,7 @@ import { Check, Zap, Crown, ArrowRight, Star } from 'lucide-react';
 
 const PricingView = () => {
   // 🟢 FIXED: Your actual Stripe Sandbox Link
-  const STRIPE_PRO_LINK = "https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00";
+  const STRIPE_PRO_LINK = "https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00";
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 animate-fade-in">
