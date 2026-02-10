@@ -6,13 +6,15 @@ import {
   Sparkles, 
   Loader2, 
   BrainCircuit, 
-  Zap, 
   Target, 
   MessageCircle, 
   Mail,
-  ArrowRight
+  ArrowRight,
+  Shield, // 👈 Admin Icon
+  Gift,   // 👈 Admin Icon
+  Zap
 } from 'lucide-react';
-import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore'; 
+import { collection, addDoc, doc, getDoc, updateDoc, increment, getDocs } from 'firebase/firestore'; 
 import { db } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useUser } from '@clerk/clerk-react'; 
@@ -26,43 +28,64 @@ interface DashboardViewProps {
 const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const { user } = useUser(); 
   
+  // --- ADMIN STATE ---
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  
+  // 🔒 REPLACE WITH YOUR EXACT EMAIL
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === "YOUR_EMAIL@GMAIL.COM"; 
+
+  // --- RESEARCH STATE ---
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
-  
   const [loading, setLoading] = useState(false);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  // 🛡️ TRACK DEMO USAGE
   const [demoCredits, setDemoCredits] = useState(() => {
     const saved = localStorage.getItem('sentient_demo_credits');
     return saved !== null ? parseInt(saved) : 2; 
   });
 
+  // 1. 🛡️ ADMIN: Fetch Users (Only runs if you are admin)
+  useEffect(() => {
+    if (isAdmin) {
+      const fetchUsers = async () => {
+        const snap = await getDocs(collection(db, 'users'));
+        setAdminUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      };
+      fetchUsers();
+    }
+  }, [isAdmin]);
+
+  // 2. 🛡️ ADMIN: Gift Credits Function
+  const giftCredits = async (userId: string) => {
+    if(!window.confirm("Gift 100 Credits?")) return;
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { credits: increment(100), plan: 'pro' });
+    alert("Grant Successful!");
+    window.location.reload();
+  };
+
+  // 3. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🛑 GATEKEEPER LOGIC
     if (isDemoMode) {
       if (demoCredits <= 0) {
-        alert("🚀 Demo Limit Reached! Sign up for a free account to get 3 more credits.");
+        alert("🚀 Demo Limit Reached! Sign up for a free account.");
         return;
       }
     } else {
       if (!user) return;
-      // Check Real User Credits
       const userRef = doc(db, 'users', user.id);
       const userSnap = await getDoc(userRef);
       const userData = userSnap.data();
 
-      // 💰 STRIPE REDIRECT IF OUT OF CREDITS
       if (userData && userData.credits <= 0) {
-        const wantToUpgrade = window.confirm("⚠️ You are out of credits!\n\nClick OK to upgrade to Pro ($49/mo) and get UNLIMITED research instantly.");
-        if (wantToUpgrade) {
-            window.location.href = 'https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00';
-        }
+        const wantToUpgrade = window.confirm("⚠️ Out of credits! Upgrade to Pro ($49)?");
+        if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00';
         return;
       }
     }
@@ -79,12 +102,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         tools: [{ googleSearch: {} } as any] 
       });
 
-      // 🧠 THE SMARTER PROMPT
       const prompt = `You are a B2B Sales Expert. Use Google Search to find real-time info about ${name}, ${role} at ${company}. 
       Return a valid JSON object with:
       1. personality (string): A psychological profile.
-      2. painPoints (array of strings): 3 distinct business challenges they likely face.
-      3. iceBreakers (array of strings): 3 specific, non-generic conversation starters based on recent news or interests.
+      2. painPoints (array of strings): 3 distinct business challenges.
+      3. iceBreakers (array of strings): 3 specific conversation starters.
       4. emailDraft (string): A personalized cold email.`;
 
       const result = await model.generateContent(prompt);
@@ -94,7 +116,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       const aiData = JSON.parse(text);
       setDossier(aiData);
 
-      // DEDUCT CREDITS
       if (isDemoMode) {
         const newCredits = demoCredits - 1;
         setDemoCredits(newCredits);
@@ -118,25 +139,69 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     try {
       await addDoc(collection(db, 'leads'), {
         userId: user.id, 
-        name,
-        company,
-        role,
-        stage: 'New', 
-        dossier, 
-        value: 0,
-        createdAt: new Date()
+        name, company, role, stage: 'New', dossier, value: 0, createdAt: new Date()
       });
       setSaved(true);
-    } catch (error) {
-      alert("Failed to save.");
-    } finally {
-      setSaving(false);
-    }
+    } catch (error) { alert("Failed to save."); } 
+    finally { setSaving(false); }
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      
+      {/* 🛡️ GOD MODE PANEL (Only Visible to YOU) */}
+      {isAdmin && (
+        <div className="bg-slate-900 rounded-2xl p-6 border-2 border-red-900 shadow-2xl mb-8">
+          <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => setShowAdminPanel(!showAdminPanel)}>
+            <div className="flex items-center gap-3">
+              <Shield className="text-red-500" size={24} />
+              <div>
+                <h2 className="text-white font-black text-lg">COMMAND CENTER</h2>
+                <p className="text-red-400 text-xs font-bold uppercase tracking-widest">Administrator Access Granted</p>
+              </div>
+            </div>
+            <button className="text-slate-400 text-sm hover:text-white">
+              {showAdminPanel ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+
+          {showAdminPanel && (
+            <div className="overflow-x-auto bg-slate-800 rounded-xl border border-slate-700">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-900/50 text-slate-500 uppercase font-bold text-xs">
+                  <tr>
+                    <th className="p-3">User</th>
+                    <th className="p-3">Credits</th>
+                    <th className="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {adminUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-700/50">
+                      <td className="p-3">
+                        <div className="font-bold text-white">{u.email}</div>
+                        <div className="text-[10px] opacity-50">{u.id}</div>
+                      </td>
+                      <td className="p-3 font-mono text-yellow-400">{u.credits}</td>
+                      <td className="p-3 text-right">
+                        <button 
+                          onClick={() => giftCredits(u.id)}
+                          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ml-auto border border-emerald-500/20"
+                        >
+                          <Gift size={12} /> Gift 100
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STANDARD HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
           <p className="text-slate-500 text-sm">Real-time intelligence via Gemini Search.</p>
@@ -215,7 +280,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 )}
               </div>
 
-              {/* 1. PERSONALITY CARD */}
               <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
                 <div className="flex items-center gap-2 mb-3 text-brand-600">
                   <BrainCircuit size={20} />
@@ -224,9 +288,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <p className="text-slate-700 leading-relaxed">{dossier.personality}</p>
               </div>
 
-              {/* 2. PAIN POINTS & ICE BREAKERS GRID (RESTORED!) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Pain Points */}
                 <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
                   <div className="flex items-center gap-2 mb-4 text-red-600">
                     <Target size={20} />
@@ -242,7 +304,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                   </ul>
                 </div>
 
-                {/* Ice Breakers */}
                 <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
                   <div className="flex items-center gap-2 mb-4 text-blue-600">
                     <MessageCircle size={20} />
@@ -259,7 +320,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 </div>
               </div>
 
-              {/* 3. EMAIL DRAFT CARD */}
               <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
                  <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4">
                     <Mail size={20} />

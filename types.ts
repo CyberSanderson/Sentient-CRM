@@ -7,9 +7,10 @@ export type View =
   | 'settings'
   | 'privacy' 
   | 'terms' 
-  | 'refunds';
+  | 'refunds'
+  | 'admin'; // 👈 ADD THIS
 
-// 2. LEAD STAGES (Restored to Enum to fix Pipeline errors)
+// ... rest of your file stays exactly the same ...
 export enum LeadStage {
   NEW = 'New',
   CONTACTED = 'Contacted',
@@ -20,35 +21,28 @@ export enum LeadStage {
   CLOSED_LOST = 'Closed Lost'
 }
 
-// 3. AI DOSSIER (Updated with new fields)
 export interface Dossier {
   personality: string;
-  painPoints: string[];   // ✅ Required for Dashboard
-  iceBreakers: string[];  // ✅ Required for Dashboard
+  painPoints: string[];
+  iceBreakers: string[];
   emailDraft: string;
 }
 
-// 4. LEAD OBJECT
 export interface Lead {
   id: string;
   userId: string;
   name: string;
   company: string;
   role: string;
-  
-  // Allow both Enum and String to be safe
   stage: LeadStage | string; 
   value: number;
-  
   dossier?: Dossier; 
-  
   createdAt: any; 
   lastContact?: any;
   email?: string;
   website?: string;
 }
 
-// 5. USER PROFILE
 export interface UserProfile {
   id: string;
   email: string;

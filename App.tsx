@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ClerkProvider, useUser, useClerk } from "@clerk/clerk-react";
-import { doc, getDoc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore'; 
+import { doc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore'; 
 import { db } from './lib/firebase'; 
 import { Loader2 } from 'lucide-react';
 
@@ -8,8 +8,9 @@ import { Loader2 } from 'lucide-react';
 import DashboardView from './views/DashboardView';
 import LeadsView from './views/LeadsView';
 import PipelineView from './views/PipelineView'; 
-import LandingPage from "./views/LandingPage";
+import LandingPage from './views/LandingPage'; // Ensure this path matches your file structure
 import PricingView from './views/PricingView';
+import AdminView from './views/AdminView'; // 👈 God Mode View
 
 // --- COMPONENTS ---
 import { Sidebar } from './components/Sidebar';
@@ -101,9 +102,10 @@ const SentientApp = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <DashboardView leads={leads} isDemoMode={isDemoMode} />;
-      case 'pipeline':  return <PipelineView leads={leads} />; // Pass leads if needed
+      case 'pipeline':  return <PipelineView leads={leads} />;
       case 'leads':     return <LeadsView leads={leads} />;
       case 'pricing':   return <PricingView />;
+      case 'admin':     return <AdminView />; // 👈 God Mode Routing
       case 'privacy':   return <PrivacyPage onBack={() => setCurrentView('dashboard')} />;
       case 'terms':     return <TermsPage onBack={() => setCurrentView('dashboard')} />;
       case 'refunds':   return <RefundsPage onBack={() => setCurrentView('dashboard')} />;
@@ -111,27 +113,26 @@ const SentientApp = () => {
     }
   };
 
-  // 6. LANDING PAGE GATE
+  // 6. LANDING PAGE GATE (Fixed Login Logic)
   const isLegalView = ['privacy', 'terms', 'refunds'].includes(currentView);
 
   if (!isSignedIn && !isDemoMode && !isLegalView) {
     return (
       <LandingPage 
-        onDemoStart={() => setIsDemoMode(true)} 
+        onLoginClick={openSignIn}       // 👈 Passes the login function
+        onSignupClick={openSignUp}      // 👈 Passes the signup function
+        onDemoStart={() => setIsDemoMode(true)} // (Might be onDemoClick depending on your file)
+        // If your LandingPage uses onDemoClick instead, swap the line above for:
+        // onDemoClick={() => setIsDemoMode(true)}
       />
     );
   }
 
-  // 7. MAIN APP LAYOUT (With Mobile Fixes)
+  // 7. MAIN APP LAYOUT
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Sidebar handles both Desktop (Left) and Mobile (Bottom) */}
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       
-      {/* 🟢 CRITICAL FIX: 
-         - 'pb-24' adds padding at the bottom so mobile nav doesn't cover content.
-         - 'md:pb-0' removes that padding on desktop.
-      */}
       <main className="flex-1 h-full overflow-y-auto pb-24 md:pb-0">
         <div className={`mx-auto h-full ${isLegalView ? 'max-w-none p-0' : 'max-w-7xl'}`}>
             {renderView()}
