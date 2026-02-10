@@ -1,21 +1,24 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
-// 1. Initialize Firebase Admin (The "Security Guard")
-// This loads the "Master Key" you added to Vercel Env Variables
-if (!admin.apps.length) {
+// 1. Initialize Firebase Admin (Secure Modular Style)
+// We use getApps() to safely check if it's already running
+if (!getApps().length) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    initializeApp({
+      credential: cert(serviceAccount),
     });
   } catch (error) {
     console.error('Firebase Admin Init Error:', error);
   }
 }
 
-const db = admin.firestore();
+// Get DB instance safely
+const db = getFirestore();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // A. CORS & Method Check
@@ -23,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // B. SECURITY: Verify the User's ID Card
+  // B. SECURITY: Verify the User's Token
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing Token' });
@@ -31,11 +34,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader.split('Bearer ')[1];
 
   try {
-    // Verify the token with Firebase Auth to get the REAL User ID
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    // Verify the Clerk-generated Firebase token
+    const decodedToken = await getAuth().verifyIdToken(token);
     const userId = decodedToken.uid;
 
-    // C. GET USER DATA & CHECK LIMITS
+    // C. CHECK LIMITS IN FIRESTORE
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
 
@@ -45,76 +48,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userData = userDoc.data() || {};
     
-    // --- DAILY RESET LOGIC (The "Watch") ---
-    const today = new Date().toISOString().split('T')[0]; // e.g. "2026-02-10"
-    
-    // If the last time they used it wasn't today, reset their count!
+    // Daily Reset Logic
+    const today = new Date().toISOString().split('T')[0]; 
     if (userData.lastUsageDate !== today) {
-        await userRef.update({
-            usageCount: 0,
-            lastUsageDate: today
-        });
-        userData.usageCount = 0; // Update local variable so they pass the check below
+        await userRef.update({ usageCount: 0, lastUsageDate: today });
+        userData.usageCount = 0;
     }
 
-    // --- ENFORCE PLAN LIMITS ---
-    // Pro gets 100, Free gets 3
+    // Plan Limits
     const isPro = userData.plan === 'pro' || userData.plan === 'premium';
     const limit = isPro ? 100 : 3;
 
     if ((userData.usageCount || 0) >= limit) {
         return res.status(403).json({ 
-            error: isPro 
-                ? "You hit the 100 daily limit!" 
-                : "Daily free limit reached (3/3). Upgrade to Pro for 100/day.",
+            error: isPro ? "Daily limit of 100 reached." : "Daily free limit reached. Upgrade to Pro.",
             limitReached: true
         });
     }
 
-    // D. VALIDATE INPUTS
+    // D. RUN GEMINI AI
     const { prospectName, company, role } = req.body;
-    if (!prospectName || !company) {
-      return res.status(400).json({ error: 'Name and Company are required' });
-    }
-
-    // E. RUN SENTIENT AI
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Server Error: AI Key missing' });
-    }
+    if (!apiKey) return res.status(500).json({ error: 'Server Error: AI Key missing' });
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    const prompt = `
-      Act as a world-class sales strategist. Analyze this prospect:
-      Name: "${prospectName}"
-      Role: "${role}"
-      Company: "${company}"
-      
-      Generate a Sales Dossier in strict JSON format (no markdown code blocks):
-      {
-        "personality": "Psychological driver analysis (e.g. Skeptic, Visionary)",
-        "painPoints": ["Specific pain point 1", "Specific pain point 2", "Specific pain point 3"],
-        "iceBreakers": ["Research-based opener 1", "Research-based opener 2"],
-        "emailDraft": "A cold email draft under 100 words using the insights above."
-      }
-    `;
+    const prompt = `Act as a sales strategist. Analyze ${prospectName}, ${role} at ${company}. Return strict JSON with personality, painPoints (array), iceBreakers (array), emailDraft.`;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    const text = (await result.response).text().replace(/```json/g, '').replace(/```/g, '').trim();
     
-    // F. SUCCESS: Increment Usage Count
-    // Only happens if AI succeeds
-    await userRef.update({
-        usageCount: admin.firestore.FieldValue.increment(1)
-    });
+    // E. INCREMENT USAGE
+    await userRef.update({ usageCount: FieldValue.increment(1) });
 
     return res.status(200).json(JSON.parse(text));
 
   } catch (error: any) {
-    console.error('API Error:', error);
-    return res.status(500).json({ error: 'Failed to generate analysis.' });
+    console.error('Backend Error:', error);
+    return res.status(500).json({ error: 'System Error. Analysis failed.' });
   }
 }
