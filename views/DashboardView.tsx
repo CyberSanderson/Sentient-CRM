@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
+  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, AlertTriangle
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
-import { db, auth } from '../lib/firebase'; // 👈 Importing auth
+import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useAuth, useUser } from '@clerk/clerk-react'; 
+
+// 🛡️ HELPER: Prevents "Blank Screen" crashes if AI returns bad data
+const safeList = (data: any): string[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'string') return [data]; // If it's a string, wrap it in a list
+  return ["No data available"];
+};
 
 interface DashboardViewProps {
   leads: Lead[];
@@ -44,7 +52,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         try {
             const snap = await getDocs(collection(db, 'users'));
             setAdminUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) { console.error("Admin fetch failed", e); }
+        } catch (e) { console.error("Admin fetch error", e); }
       };
       fetchUsers();
     }
@@ -60,7 +68,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     } catch (e) { alert("Grant failed"); }
   };
 
-  // 2. RESEARCH LOGIC (CRASH PROOF VERSION)
+  // 2. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -81,26 +89,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       return;
     }
 
-    // B. Live User (The Secure Handshake)
+    // B. Live User
     try {
-      // 🛑 SAFETY CHECK: Prevent Blank Screen Crash
+      // 🛑 CRITICAL CHECK: If this is missing, the app will alert instead of crashing
       if (!auth) {
-        throw new Error("Firebase Auth is not initialized. Check src/lib/firebase.ts export.");
+        throw new Error("Config Error: 'auth' is missing from src/lib/firebase.ts");
       }
 
-      // Step 1: Get the Clerk Token
+      // Step 1: Clerk Token
       const clerkToken = await getToken({ template: 'firebase' });
       if (!clerkToken) throw new Error("Clerk token missing. Check Clerk > JWT Templates.");
 
-      // Step 2: Trade it for a Firebase Token
+      // Step 2: Firebase Handshake
       const provider = new OAuthProvider('oidc.clerk'); 
       const credential = provider.credential({ idToken: clerkToken });
       
-      // Sign in to Firebase locally
       const firebaseResult = await signInWithCredential(auth, credential);
       const firebaseIdToken = await firebaseResult.user.getIdToken();
 
-      // Step 3: Send the GOOGLE Token to Backend
+      // Step 3: Backend Call
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
@@ -125,8 +132,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       setDossier(data);
 
     } catch (error: any) {
-      console.error("Handshake Error:", error);
-      alert(`System Error: ${error.message || "Please refresh and try again."}`);
+      console.error("Analysis Error:", error);
+      alert(`System Error: ${error.message || "Please refresh."}`);
     } finally {
       setLoading(false);
     }
@@ -240,20 +247,53 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                          {saved ? 'Saved' : 'Save Lead'}
                         </button>
                     </div>
+
+                    {/* PERSONALITY SECTION */}
                     <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
-                        <p className="text-slate-700">{dossier.personality}</p>
+                        <div className="flex items-center gap-2 mb-3 text-brand-600">
+                          <BrainCircuit size={20} />
+                          <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
+                        </div>
+                        <p className="text-slate-700">{dossier.personality || "Analysis complete."}</p>
                     </div>
-                    {/* Pain Points & Ice Breakers */}
+
+                    {/* PAIN POINTS & ICE BREAKERS - NOW CRASH PROOF */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
-                             <ul className="space-y-3">{dossier.painPoints?.map((p: string, i: number) => <li key={i} className="text-sm text-slate-700">• {p}</li>)}</ul>
+                             <div className="flex items-center gap-2 mb-4 text-red-600">
+                                <Target size={20} />
+                                <h4 className="text-[10px] font-black uppercase tracking-widest">Pain Points</h4>
+                             </div>
+                             <ul className="space-y-3">
+                                {safeList(dossier.painPoints).map((p: string, i: number) => (
+                                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                    <span className="text-red-400 mt-1">•</span>{p}
+                                  </li>
+                                ))}
+                             </ul>
                         </div>
                         <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-                             <ul className="space-y-3">{dossier.iceBreakers?.map((p: string, i: number) => <li key={i} className="text-sm text-slate-700">• {p}</li>)}</ul>
+                             <div className="flex items-center gap-2 mb-4 text-blue-600">
+                                <MessageCircle size={20} />
+                                <h4 className="text-[10px] font-black uppercase tracking-widest">Ice Breakers</h4>
+                             </div>
+                             <ul className="space-y-3">
+                                {safeList(dossier.iceBreakers).map((p: string, i: number) => (
+                                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                    <span className="text-blue-400 mt-1">•</span>{p}
+                                  </li>
+                                ))}
+                             </ul>
                         </div>
                     </div>
+
+                    {/* EMAIL DRAFT */}
                     <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
-                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{dossier.emailDraft}</div>
+                        <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4">
+                           <Mail size={20} />
+                           <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
+                        </div>
+                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{dossier.emailDraft || "No draft generated."}</div>
                     </div>
                 </div>
             )}
