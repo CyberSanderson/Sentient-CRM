@@ -4,11 +4,13 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
-// 1. Initialize Firebase Admin (Secure Modular Style)
-// We use getApps() to safely check if it's already running
+// 1. Initialize Firebase Admin
 if (!getApps().length) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string);
+    const keyString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!keyString) throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY is missing");
+    
+    const serviceAccount = JSON.parse(keyString);
     initializeApp({
       credential: cert(serviceAccount),
     });
@@ -17,7 +19,6 @@ if (!getApps().length) {
   }
 }
 
-// Get DB instance safely
 const db = getFirestore();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -26,24 +27,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // B. SECURITY: Verify the User's Token
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing Token' });
-  }
-  const token = authHeader.split('Bearer ')[1];
-
   try {
-    // Verify the Clerk-generated Firebase token
+    // B. SECURITY: Verify Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Unauthorized: Missing Token');
+    }
+    const token = authHeader.split('Bearer ')[1];
+
+    // Verify Token
     const decodedToken = await getAuth().verifyIdToken(token);
     const userId = decodedToken.uid;
+    const email = decodedToken.email;
 
-    // C. CHECK LIMITS IN FIRESTORE
+    // C. CHECK OR CREATE USER (The Fix)
     const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
+    let userDoc = await userRef.get();
 
+    // 🚨 AUTO-HEAL: If user is missing, create them now!
     if (!userDoc.exists) {
-        return res.status(404).json({ error: 'User profile not found.' });
+        console.log(`Creating missing user profile for ${email}`);
+        await userRef.set({
+            email: email || "unknown",
+            usageCount: 0,
+            plan: 'free',
+            createdAt: new Date(),
+            lastUsageDate: new Date().toISOString().split('T')[0]
+        });
+        // Fetch it again now that it exists
+        userDoc = await userRef.get();
     }
 
     const userData = userDoc.data() || {};
@@ -69,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // D. RUN GEMINI AI
     const { prospectName, company, role } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'Server Error: AI Key missing' });
+    if (!apiKey) throw new Error('GEMINI_API_KEY is missing');
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
@@ -86,6 +98,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Backend Error:', error);
-    return res.status(500).json({ error: 'System Error. Analysis failed.' });
+    return res.status(500).json({ error: error.message || 'System Error' });
   }
 }
