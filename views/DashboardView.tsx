@@ -42,7 +42,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // 🔒 REPLACE WITH YOUR REAL EMAIL
-  const isAdmin = user?.primaryEmailAddress?.emailAddress === "YOUR_EMAIL@GMAIL.COM"; 
+  const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
