@@ -85,7 +85,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
       if (userData && userData.credits <= 0) {
         const wantToUpgrade = window.confirm("⚠️ Out of credits! Upgrade to Pro ($49)?");
-        if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00';
+        if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00';
         return;
       }
     }

@@ -208,7 +208,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Unlimited Projects</li>
               </ul>
               <button 
-  onClick={() => window.location.href = 'https://buy.stripe.com/test_cNi4gB1qSe0j2Em44Y4ow00'} 
+  onClick={() => window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00'} 
   className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/25"
 >
   Go Unlimited
