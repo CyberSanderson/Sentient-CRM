@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
   Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, CreditCard
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, getDocs, onSnapshot } from 'firebase/firestore'; 
+import { collection, addDoc, doc, updateDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -59,24 +59,37 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. REAL-TIME CREDIT LISTENER
+  // 1. MANUAL SYNC FUNCTION (The Fix)
+  // We call this to force the UI to check the database
+  const fetchUserStats = useCallback(async () => {
+    if (user && !isDemoMode) {
+        try {
+            const docRef = doc(db, 'users', user.id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setUserStats(docSnap.data() as any);
+            }
+        } catch (error) {
+            console.error("Error syncing stats:", error);
+        }
+    }
+  }, [user, isDemoMode]);
+
+  // 2. REAL-TIME LISTENER (Kept for background updates)
   useEffect(() => {
     if (user && !isDemoMode) {
-        // Listen to the user's document in Firestore continuously
         const unsub = onSnapshot(doc(db, 'users', user.id), (docSnapshot) => {
             if (docSnapshot.exists()) {
                 setUserStats(docSnapshot.data() as any);
             } else {
                 setUserStats({ plan: 'free', usageCount: 0 });
             }
-        }, (error) => {
-            console.log("Firestore Listener Error (likely permissions):", error);
         });
         return () => unsub(); 
     }
   }, [user, isDemoMode]);
 
-  // 2. ADMIN LOGIC
+  // 3. ADMIN LOGIC
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -98,7 +111,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     } catch (e) { alert("Grant failed"); }
   };
 
-  // 3. RESEARCH LOGIC
+  // 4. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -157,14 +170,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         return;
       }
 
-      // SUCCESS!
       setDossier(data);
       
-      // 🚀 OPTIMISTIC UPDATE: Update the UI immediately without waiting for DB
-      setUserStats(prev => ({ 
-        ...prev, 
-        usageCount: (prev.usageCount || 0) + 1 
-      }));
+      // 🚀 DOUBLE SYNC
+      // 1. Optimistic: Update screen instantly so user feels it's fast
+      setUserStats(prev => ({ ...prev, usageCount: (prev.usageCount || 0) + 1 }));
+      
+      // 2. Truth: Wait 1 second, then ask database for the REAL number
+      // This fixes the "refresh" issue because it ensures the local cache matches the server
+      setTimeout(() => {
+          fetchUserStats();
+      }, 1000);
 
     } catch (error: any) {
       console.error("Analysis Error:", error);
