@@ -3,7 +3,7 @@ import {
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
   Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, CreditCard
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
+import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -172,14 +172,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       // SUCCESS!
       setDossier(data);
       
-      // 🚀 CRITICAL FIX: The Dashboard handles the "Charge"
-      // Since we didn't touch the backend, we update the DB directly from here.
-      // This guarantees the count is saved.
+      // 🚀 CRITICAL FIX: Use setDoc with merge: true
+      // This creates the document if it's missing (fixing the "No document" error)
       if (user) {
           const currentCount = userStats.usageCount || 0;
-          await updateDoc(doc(db, 'users', user.id), { 
+          await setDoc(doc(db, 'users', user.id), { 
               usageCount: currentCount + 1 
-          });
+          }, { merge: true }); // <--- THIS PREVENTS THE CRASH
           
           // Force local update immediately so UI is snappy
           setUserStats(prev => ({ ...prev, usageCount: currentCount + 1 }));
