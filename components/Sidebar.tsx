@@ -109,14 +109,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) =
 
       {/* 🖥️ DESKTOP SIDEBAR */}
       <div className="hidden md:flex w-72 bg-slate-900 text-white p-6 flex-col border-r border-slate-800 h-screen sticky top-0">
-        <div className="flex items-center gap-2 mb-10">
-          <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/50">
-            <Sparkles className="text-white" size={18} />
-          </div>
+        
+        {/* LOGO SECTION */}
+        <div className="flex items-center gap-3 mb-10">
+          {/* 👇 LOGO IMAGE */}
+          <img 
+            src="/sentient-prospect-logo.png" 
+            alt="Sentient Logo" 
+            className="h-10 w-auto object-contain" 
+          />
+          {/* Text is optional - remove if your logo already has text */}
           <span className="text-xl font-bold tracking-tight text-white">
-            Sentient<span className="text-brand-400">CRM</span>
+            SENTIENT
           </span>
         </div>
+
         <nav className="flex-1 space-y-2">
           <DesktopItem view="dashboard" icon={LayoutDashboard} label="Research Center" />
           <DesktopItem view="pipeline" icon={KanbanSquare} label="Deals Pipeline" />

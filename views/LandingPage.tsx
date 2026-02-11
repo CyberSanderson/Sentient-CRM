@@ -21,6 +21,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
   onLoginClick, onSignupClick, onDemoClick, setCurrentView 
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
 
   // Helper to scroll to specific sections inside the scrollable container
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
@@ -51,10 +52,13 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <nav className="sticky top-0 w-full z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={scrollToTop}>
-              <div className="bg-gradient-to-br from-brand-400 to-brand-600 p-1.5 rounded-lg shadow-lg">
-                <Bot className="text-white" size={24} />
-              </div>
+            <div className="flex items-center gap-3 cursor-pointer group" onClick={scrollToTop}>
+              {/* 👇 LOGO UPDATE HERE */}
+              <img 
+                src="/sentient-prospect-logo.png" 
+                alt="Sentient Logo" 
+                className="h-10 w-auto object-contain" 
+              />
               <span className="text-xl font-bold text-slate-900 tracking-tight">Sentient Prospect</span>
             </div>
             
@@ -147,14 +151,14 @@ const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-500 text-sm leading-relaxed">Stop wasting time on dead leads. Our AI analyzes data points to score prospects on likelihood to close.</p>
             </div>
             <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-brand-200 transition-all">
-               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
                 <Bot size={24} />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Auto-Drafting</h3>
               <p className="text-slate-500 text-sm leading-relaxed">Generate hyper-personalized cold outreach and follow-ups in seconds. The AI learns your voice.</p>
             </div>
             <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-brand-200 transition-all">
-               <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-110 transition-transform">
                 <Zap size={24} />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Instant Insights</h3>
@@ -212,7 +216,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
               <p className="text-slate-500 text-sm mb-8">For solopreneurs who mean business.</p>
 
               <ul className="space-y-4 mb-10 text-sm text-slate-600">
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> <b>Unlimited</b> Daily Research</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> <b>100</b> Daily Research</li>
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Advanced AI "Deep Dive"</li>
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Live Google Search Integration</li>
                 <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Priority Support</li>
