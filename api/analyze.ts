@@ -91,31 +91,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    // 🚀 THE MAGIC PROMPT FIX
-    // We removed the word "Psychological" to avoid safety filters.
-    // We added "Search your internal database" to force specific recall.
+    // 🚀 THE "HIGH CONFIDENCE" PROMPT
     const prompt = `
-      You are a world-class sales researcher. 
+      You are an expert sales strategist.
       Target: ${prospectName}
       Role: ${role}
       Company: ${company}
 
       TASK:
-      Search your internal knowledge base for podcasts, interviews, articles, and LinkedIn posts by this person.
-      
+      Search internal knowledge for podcasts, interviews, and posts. Create a high-confidence dossier.
+
       OUTPUT REQUIREMENTS (Strict JSON):
+      
       1. "personality": A "Professional Communication Profile". 
-         - MENTION SPECIFICS: If they have a nickname (e.g. "Queen of AI"), specific catchphrases, or communities they lead, YOU MUST INCLUDE THEM. 
-         - Analyze their DISC profile based on their public content.
-         - If no public info exists, infer from their job title.
+         - RULE: BE ABSOLUTE. Do not use hedging words like "likely", "suggests", "appears", "probably", "may". 
+         - State facts: "She is a Driver." "She values speed."
+         - Mention specifics (Nicknames like "Queen of AI", community roles, etc).
       
       2. "painPoints": 5 specific business challenges relevant to their specific company situation.
       
-      3. "iceBreakers": 3 hyper-specific conversation starters. 
-         - Do NOT use generic "I saw your company". 
-         - Reference specific interviews, articles, or recent news if available.
+      3. "iceBreakers": 3 hyper-specific conversation starters based on real interviews or news.
       
-      4. "emailDraft": A short, punchy cold email using the insights above.
+      4. "emailDraft": A complete, ready-to-send email.
+         - RULE: NO PLACEHOLDERS. Do NOT use brackets like [Insert Pain Point].
+         - You must SELECT the top 2 pain points from your analysis and WRITE THEM into the email sentences yourself.
+         - You must WRITE the solution statement yourself, framed as "helping you solve [Specific Pain Point] to achieve [Specific Benefit]."
+         - Keep it under 150 words.
       
       RETURN ONLY JSON. DO NOT USE MARKDOWN.
     `;
