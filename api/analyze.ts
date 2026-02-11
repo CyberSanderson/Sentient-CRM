@@ -89,33 +89,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!apiKey) throw new Error('GEMINI_API_KEY is missing');
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    // ⚡ ENABLE GOOGLE SEARCH TOOL
+    const model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.0-flash',
+        // @ts-ignore - The SDK types haven't caught up to the new Search Tool yet, but this works!
+        tools: [{ googleSearch: {} }] 
+    });
 
-    // 🚀 THE "HIGH CONFIDENCE" PROMPT
+    // 🚀 PROMPT WITH "LIVE SEARCH" INSTRUCTIONS
     const prompt = `
-      You are an expert sales strategist.
+      You are an expert sales strategist with access to Google Search.
       Target: ${prospectName}
       Role: ${role}
       Company: ${company}
 
       TASK:
-      Search internal knowledge for podcasts, interviews, and posts. Create a high-confidence dossier.
+      Use Google Search to find REAL, RECENT information about this person. 
+      Find actual podcast interviews, recent news articles, or awards.
 
       OUTPUT REQUIREMENTS (Strict JSON):
       
       1. "personality": A "Professional Communication Profile". 
-         - RULE: BE ABSOLUTE. Do not use hedging words like "likely", "suggests", "appears", "probably", "may". 
-         - State facts: "She is a Driver." "She values speed."
-         - Mention specifics (Nicknames like "Queen of AI", community roles, etc).
+         - BE ABSOLUTE. No "likely" or "appears". 
+         - Mention specifics found in search (Nicknames like "Queen of AI", community roles, etc).
       
-      2. "painPoints": 5 specific business challenges relevant to their specific company situation.
+      2. "painPoints": 5 specific business challenges relevant to their specific company situation found in search results.
       
-      3. "iceBreakers": 3 hyper-specific conversation starters based on real interviews or news.
+      3. "iceBreakers": 3 hyper-specific conversation starters.
+         - MANDATORY: Reference a REAL podcast name, article title, or award name found via Google Search.
+         - EXAMPLE: "I saw your interview on the 'Marketing School' podcast..." NOT "on [Podcast Name]".
       
       4. "emailDraft": A complete, ready-to-send email.
-         - RULE: NO PLACEHOLDERS. Do NOT use brackets like [Insert Pain Point].
-         - You must SELECT the top 2 pain points from your analysis and WRITE THEM into the email sentences yourself.
-         - You must WRITE the solution statement yourself, framed as "helping you solve [Specific Pain Point] to achieve [Specific Benefit]."
+         - RULE: NO PLACEHOLDERS. NO BRACKETS like [Insert Name].
+         - You must FILL IN the specific details found in search.
+         - If you cannot find a specific podcast, reference a specific topic they post about on LinkedIn instead.
          - Keep it under 150 words.
       
       RETURN ONLY JSON. DO NOT USE MARKDOWN.
