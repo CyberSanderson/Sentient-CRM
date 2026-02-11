@@ -21,6 +21,9 @@ if (!getApps().length) {
 
 const db = getFirestore();
 
+// Helper: Sleep function for retries
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // A. CORS & Method Check
   if (req.method !== 'POST') {
@@ -29,8 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // ============================================================
-    // 🔒 B. SECURITY: VERIFY TOKEN (DO NOT REMOVE)
-    // This ensures only logged-in users can run this function.
+    // 🔒 B. SECURITY: VERIFY TOKEN
     // ============================================================
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -38,7 +40,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const token = authHeader.split('Bearer ')[1];
 
-    // Verify the token with Firebase
     const decodedToken = await getAuth().verifyIdToken(token);
     const userId = decodedToken.uid;
     const email = decodedToken.email;
@@ -46,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 🔒 END SECURITY CHECK
     // ============================================================
 
-    // C. CHECK OR CREATE USER (Auto-Heal Logic)
+    // C. CHECK OR CREATE USER (Auto-Heal)
     const userRef = db.collection('users').doc(userId);
     let userDoc = await userRef.get();
 
@@ -85,32 +86,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    // D. RUN GEMINI AI
+    // D. RUN GEMINI AI (With Retry Logic)
     const { prospectName, company, role } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY is missing');
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // ⚡ FIX: Using 'gemini-pro' (The Universal Stable Model)
-    // This fixes the [404 Not Found] error while keeping security intact.
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // ⚡ WE ARE USING 2.0-FLASH BECAUSE WE KNOW IT EXISTS
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = `Act as a sales strategist. Analyze ${prospectName}, ${role} at ${company}. Return strict JSON with personality, painPoints (array), iceBreakers (array), emailDraft.`;
 
-    const result = await model.generateContent(prompt);
-    const text = (await result.response).text().replace(/```json/g, '').replace(/```/g, '').trim();
+    let text = "";
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    // 🔄 THE RETRY LOOP
+    while (attempts < maxAttempts) {
+        try {
+            const result = await model.generateContent(prompt);
+            text = result.response.text();
+            break; // Success! Exit loop.
+        } catch (error: any) {
+            attempts++;
+            // Check if it's a Rate Limit error (429)
+            if (error.message?.includes('429') || error.message?.includes('Resource exhausted')) {
+                console.warn(`Rate limit hit. Retrying attempt ${attempts}/${maxAttempts}...`);
+                if (attempts >= maxAttempts) throw new Error("Server busy. Please try again in 1 minute.");
+                await sleep(3000); // Wait 3 seconds before retrying
+            } else {
+                throw error; // If it's a real error (like 404), crash immediately
+            }
+        }
+    }
+
+    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     // E. INCREMENT USAGE
     await userRef.update({ usageCount: FieldValue.increment(1) });
 
-    return res.status(200).json(JSON.parse(text));
+    return res.status(200).json(JSON.parse(cleanText));
 
   } catch (error: any) {
     console.error('Backend Error:', error);
-    if (error.message?.includes('429') || error.message?.includes('Resource exhausted')) {
-        return res.status(429).json({ error: "System busy. Please try again in 1 minute." });
-    }
     return res.status(500).json({ error: error.message || 'System Error' });
   }
 }
