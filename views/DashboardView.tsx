@@ -59,8 +59,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. MANUAL SYNC FUNCTION (The Fix)
-  // We call this to force the UI to check the database
+  // 1. MANUAL SYNC FUNCTION
   const fetchUserStats = useCallback(async () => {
     if (user && !isDemoMode) {
         try {
@@ -75,7 +74,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     }
   }, [user, isDemoMode]);
 
-  // 2. REAL-TIME LISTENER (Kept for background updates)
+  // 2. REAL-TIME LISTENER
   useEffect(() => {
     if (user && !isDemoMode) {
         const unsub = onSnapshot(doc(db, 'users', user.id), (docSnapshot) => {
@@ -170,17 +169,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         return;
       }
 
+      // SUCCESS!
       setDossier(data);
       
-      // 🚀 DOUBLE SYNC
-      // 1. Optimistic: Update screen instantly so user feels it's fast
-      setUserStats(prev => ({ ...prev, usageCount: (prev.usageCount || 0) + 1 }));
-      
-      // 2. Truth: Wait 1 second, then ask database for the REAL number
-      // This fixes the "refresh" issue because it ensures the local cache matches the server
-      setTimeout(() => {
-          fetchUserStats();
-      }, 1000);
+      // 🚀 CRITICAL FIX: The Dashboard handles the "Charge"
+      // Since we didn't touch the backend, we update the DB directly from here.
+      // This guarantees the count is saved.
+      if (user) {
+          const currentCount = userStats.usageCount || 0;
+          await updateDoc(doc(db, 'users', user.id), { 
+              usageCount: currentCount + 1 
+          });
+          
+          // Force local update immediately so UI is snappy
+          setUserStats(prev => ({ ...prev, usageCount: currentCount + 1 }));
+      }
 
     } catch (error: any) {
       console.error("Analysis Error:", error);
