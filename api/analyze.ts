@@ -69,8 +69,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         userData.usageCount = 0;
     }
 
-    // 👑 ADMIN BYPASS (Put your email here)
-    const isAdmin = email === 'your-email@gmail.com'; 
+    // 👑 ADMIN BYPASS (I added your email here)
+    const isAdmin = email === 'lifeinnovations7@gmail.com'; 
 
     // Plan Limits
     const isPro = userData.plan === 'pro' || userData.plan === 'premium' || isAdmin;
@@ -90,14 +90,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // ⚡ ENABLE GOOGLE SEARCH TOOL
     const model = genAI.getGenerativeModel({ 
         model: 'gemini-2.0-flash',
-        // @ts-ignore - The SDK types haven't caught up to the new Search Tool yet, but this works!
-        tools: [{ googleSearch: {} }] 
+        // ⚡ ENABLE GOOGLE SEARCH TOOL
+        // @ts-ignore
+        tools: [{ googleSearch: {} }],
+        // 🛡️ JSON MODE (Fixes the "Bad escaped character" error)
+        generationConfig: { responseMimeType: "application/json" }
     });
 
-    // 🚀 PROMPT WITH "LIVE SEARCH" INSTRUCTIONS
+    // 🚀 PROMPT
     const prompt = `
       You are an expert sales strategist with access to Google Search.
       Target: ${prospectName}
@@ -118,15 +120,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       3. "iceBreakers": 3 hyper-specific conversation starters.
          - MANDATORY: Reference a REAL podcast name, article title, or award name found via Google Search.
-         - EXAMPLE: "I saw your interview on the 'Marketing School' podcast..." NOT "on [Podcast Name]".
       
       4. "emailDraft": A complete, ready-to-send email.
          - RULE: NO PLACEHOLDERS. NO BRACKETS like [Insert Name].
          - You must FILL IN the specific details found in search.
-         - If you cannot find a specific podcast, reference a specific topic they post about on LinkedIn instead.
          - Keep it under 150 words.
       
-      RETURN ONLY JSON. DO NOT USE MARKDOWN.
+      RETURN ONLY JSON.
     `;
 
     let text = "";
@@ -160,6 +160,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Backend Error:', error);
-    return res.status(500).json({ error: error.message || 'System Error' });
+    return res.status(500).json({ error: "AI Response Error. Please try again." });
   }
 }
