@@ -5,6 +5,11 @@ import { Lead } from "../types";
 // NOTE: process.env.API_KEY is assumed to be available as per instructions.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// ---------------------------------------------------------
+// ⚡ CRITICAL UPDATE: Switched all models to 'gemini-1.5-flash'
+// to prevent 429 Rate Limit errors and ensure stability.
+// ---------------------------------------------------------
+
 export const generateLeadInsight = async (lead: Lead): Promise<string> => {
   try {
     const prompt = `
@@ -14,14 +19,13 @@ export const generateLeadInsight = async (lead: Lead): Promise<string> => {
       Company: ${lead.company}
       Value: $${lead.value}
       Stage: ${lead.stage}
-      Notes: ${lead.notes}
       
       Provide a concise (max 3 sentences) strategic insight on how to move this deal forward or identify potential risks.
       Be direct and professional.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash', // 👈 CHANGED
       contents: prompt,
     });
 
@@ -40,14 +44,13 @@ export const generateColdEmail = async (lead: Lead): Promise<string> => {
       Recipient: ${lead.name} at ${lead.company}
       Context: They are currently in the "${lead.stage}" stage.
       Deal Value: $${lead.value}
-      Notes: ${lead.notes}
       
       The tone should be confident but helpful. Keep it under 150 words.
       Subject line included.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash', // 👈 CHANGED
       contents: prompt,
     });
 
@@ -77,7 +80,7 @@ export const generateDailyBriefing = async (leads: Lead[]): Promise<string> => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash', // 👈 CHANGED
       contents: prompt,
     });
 
@@ -103,7 +106,7 @@ export const scoreLeadAI = async (lead: Lead): Promise<{ score: number; reason: 
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash', // 👈 CHANGED
       contents: prompt,
       config: {
         responseMimeType: "application/json",

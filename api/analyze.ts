@@ -40,11 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = decodedToken.uid;
     const email = decodedToken.email;
 
-    // C. CHECK OR CREATE USER (The Fix)
+    // C. CHECK OR CREATE USER (Auto-Heal Logic)
     const userRef = db.collection('users').doc(userId);
     let userDoc = await userRef.get();
 
-    // 🚨 AUTO-HEAL: If user is missing, create them now!
+    // 🚨 If user is missing, create them now!
     if (!userDoc.exists) {
         console.log(`Creating missing user profile for ${email}`);
         await userRef.set({
@@ -67,8 +67,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         userData.usageCount = 0;
     }
 
+    // 👑 ADMIN BYPASS: Enter your email here to get unlimited credits
+    // Replace 'your-email@gmail.com' with your actual admin email
+    const isAdmin = email === 'lifeinnovations7@gmail.com'; 
+
     // Plan Limits
-    const isPro = userData.plan === 'pro' || userData.plan === 'premium';
+    const isPro = userData.plan === 'pro' || userData.plan === 'premium' || isAdmin;
     const limit = isPro ? 100 : 3;
 
     if ((userData.usageCount || 0) >= limit) {
@@ -84,7 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!apiKey) throw new Error('GEMINI_API_KEY is missing');
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    // ⚡ SWITCHED TO 1.5-FLASH FOR STABILITY (Fixes 429 Errors)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Act as a sales strategist. Analyze ${prospectName}, ${role} at ${company}. Return strict JSON with personality, painPoints (array), iceBreakers (array), emailDraft.`;
 
@@ -98,6 +104,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Backend Error:', error);
+    // If it's a rate limit error, tell the user to wait
+    if (error.message?.includes('429') || error.message?.includes('Resource exhausted')) {
+        return res.status(429).json({ error: "System busy. Please try again in 1 minute." });
+    }
     return res.status(500).json({ error: error.message || 'System Error' });
   }
 }
