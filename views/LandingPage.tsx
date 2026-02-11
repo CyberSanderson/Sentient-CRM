@@ -34,7 +34,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
   // Helper to scroll to top
   const scrollToTop = () => {
-    // We target the main container ID 'landing-scroll-container'
     const container = document.getElementById('landing-scroll-container');
     if (container) {
       container.scrollTo({ top: 0, behavior: 'smooth' });
@@ -49,7 +48,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
     >
       
       {/* 1. NAVIGATION */}
-      {/* sticky top-0 ensures it stays visible while scrolling within this container */}
       <nav className="sticky top-0 w-full z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -89,13 +87,11 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </nav>
 
       {/* 2. HERO SECTION */}
-      {/* HERO SECTION */}
       <section className="pt-32 pb-20 px-4 relative">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-brand-500/5 blur-[120px] rounded-full pointer-events-none" />
         
         <div className="max-w-4xl mx-auto text-center relative z-10">
           
-          {/* 🚀 RESTORED: Gemini Badge & Stars */}
           <div className="flex flex-col items-center gap-4 mb-8 animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-600 text-xs font-semibold shadow-sm">
               <Zap size={14} className="fill-brand-500 text-brand-500" />
@@ -169,7 +165,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 5. PRICING SECTION */}
-      {/* PRICING SECTION */}
       <section id="pricing" className="py-24 pb-40 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -195,30 +190,46 @@ const LandingPage: React.FC<LandingPageProps> = ({
               </button>
             </div>
 
-            {/* PRO CARD (Highlighted) */}
-            <div className="p-10 rounded-3xl border-2 border-brand-500 bg-slate-900 text-white shadow-2xl shadow-brand-500/10 relative transform md:-translate-y-4">
-               <div className="absolute top-0 right-0 p-4 bg-brand-500 text-white text-[10px] font-black uppercase tracking-widest rounded-bl-xl">Most Popular</div>
-               <h3 className="font-bold text-brand-400 uppercase text-xs tracking-widest mb-2">Pro Salesman</h3>
-               <div className="text-4xl font-black mb-6">$49 <span className="text-sm font-medium text-slate-500">/mo</span></div>
-               <p className="text-slate-400 text-sm mb-8">For closers who want unlimited power.</p>
-               <ul className="space-y-4 mb-10 text-sm">
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> 100 Daily Research Credits</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Deep Psychological Analysis</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Priority Email Support</li>
-                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Unlimited Projects</li>
+            {/* PRO CARD - FIXED AND STYLED */}
+            <div className="relative p-10 rounded-3xl border-2 border-brand-500 bg-white shadow-2xl shadow-brand-500/10">
+              <div className="absolute top-0 right-0 bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-lg">
+                MOST POPULAR
+              </div>
+              <h3 className="font-bold text-brand-600 uppercase text-xs tracking-widest mb-2">Pro Plan</h3>
+              
+              {/* 1. UPDATE THE PRICE DISPLAY */}
+              <div className="flex items-baseline mb-2">
+                <span className="text-4xl font-black text-slate-900">$29</span>
+                <span className="text-slate-500 font-medium ml-2">/mo</span>
+                {/* Psychological Anchor: Show the old price crossed out */}
+                <span className="text-lg text-slate-400 line-through ml-4">$49</span>
+              </div>
+
+              <p className="text-sm text-brand-700 font-bold mb-8 bg-brand-50 border border-brand-100 px-3 py-1.5 rounded-full inline-block">
+                ✨ Founder's Rate (Limited Time)
+              </p>
+
+              <p className="text-slate-500 text-sm mb-8">For solopreneurs who mean business.</p>
+
+              <ul className="space-y-4 mb-10 text-sm text-slate-600">
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> <b>Unlimited</b> Daily Research</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Advanced AI "Deep Dive"</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Live Google Search Integration</li>
+                <li className="flex items-center gap-3"><Check size={16} className="text-brand-500" /> Priority Support</li>
               </ul>
+
+              {/* 2. UPDATE THE BUTTON LINK */}
               <button 
-  onClick={() => window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00'} 
-  className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/25"
->
-  Go Unlimited
-</button>
+                onClick={() => window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01'} 
+                className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40"
+              >
+                Claim Founder's Rate
+              </button>
             </div>
+
           </div>
 
           {/* ENTERPRISE CATCH-ALL */}
-        
-        
           <div className="text-center mt-12">
             <p className="text-slate-500 text-sm">
               Need API access or team seats? <a href="mailto:sales@sentientprospect.com" className="text-brand-600 font-bold hover:underline">Contact Sales</a>
@@ -227,7 +238,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 6. FOOTER - FINALLY VISIBLE AND SCROLLABLE! */}
+      {/* 6. FOOTER */}
       <Footer setCurrentView={setCurrentView} />
 
     </div>

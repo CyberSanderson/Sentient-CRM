@@ -41,7 +41,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
-  // 🔒 REPLACE WITH YOUR REAL EMAIL
+  // 🔒 YOUR ADMIN EMAIL
   const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
   const [name, setName] = useState('');
@@ -96,6 +96,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         setLoading(false);
         return;
       }
+      // Decrease demo credits
+      const newCredits = demoCredits - 1;
+      setDemoCredits(newCredits);
+      localStorage.setItem('sentient_demo_credits', newCredits.toString());
+      
+      // Simulating loading for demo effect
+      await new Promise(r => setTimeout(r, 2000));
       alert("Please sign in to run live AI analysis.");
       setLoading(false);
       return;
@@ -132,7 +139,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       if (!response.ok) {
         if (response.status === 403) {
             const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
-            if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/6oU7sK0yR5wB2N08KUdAk00';
+            // 🚀 UPDATED LINK: Pointing to your new $29 Founder's Rate
+            if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01';
         } else {
             alert(data.error || "Analysis failed.");
         }
@@ -224,9 +232,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
               <div className="space-y-3">
-                 <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required /></div>
-                 <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} required /></div>
-                 <div className="relative"><Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Job Title" value={role} onChange={e => setRole(e.target.value)} /></div>
+                  <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required /></div>
+                  <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Company" value={company} onChange={e => setCompany(e.target.value)} required /></div>
+                  <div className="relative"><Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input className="w-full pl-10 p-3 bg-slate-50 border rounded-xl" placeholder="Job Title" value={role} onChange={e => setRole(e.target.value)} /></div>
               </div>
 
               <button type="submit" disabled={loading} className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
