@@ -59,7 +59,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. REAL-TIME CREDIT LISTENER (The Fix)
+  // 1. REAL-TIME CREDIT LISTENER
   useEffect(() => {
     if (user && !isDemoMode) {
         // Listen to the user's document in Firestore continuously
@@ -67,11 +67,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
             if (docSnapshot.exists()) {
                 setUserStats(docSnapshot.data() as any);
             } else {
-                // Default if new user
                 setUserStats({ plan: 'free', usageCount: 0 });
             }
+        }, (error) => {
+            console.log("Firestore Listener Error (likely permissions):", error);
         });
-        return () => unsub(); // Cleanup listener on unmount
+        return () => unsub(); 
     }
   }, [user, isDemoMode]);
 
@@ -156,7 +157,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         return;
       }
 
+      // SUCCESS!
       setDossier(data);
+      
+      // 🚀 OPTIMISTIC UPDATE: Update the UI immediately without waiting for DB
+      setUserStats(prev => ({ 
+        ...prev, 
+        usageCount: (prev.usageCount || 0) + 1 
+      }));
 
     } catch (error: any) {
       console.error("Analysis Error:", error);
@@ -248,7 +256,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                             {isPro ? 'Pro Plan' : 'Free Plan'}
                         </div>
                         <div className={`text-sm font-black ${creditsLeft === 0 ? 'text-red-500' : 'text-slate-700'}`}>
-                            {creditsLeft} / {limit} Credits
+                            {creditsLeft} / {limit} Credits Left
                         </div>
                     </div>
                     
