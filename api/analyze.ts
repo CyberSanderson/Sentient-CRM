@@ -118,31 +118,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 🛡️ SAFETY PROMPT (Prevents Lies)
     const prompt = `
-      You are an expert sales strategist.
+      You are the lead Sales Strategist for "AheadWithAI", a company that builds custom AI Marketing Systems and Lead Generation Agents.
       Target: ${prospectName}
       Role: ${role}
       Company: ${company}
 
-      TASK 1: RESEARCH
-      Use Google Search to find REAL, VERIFIABLE information.
-      
-      ⚠️ CRITICAL SAFETY RULES:
-      1. NO HALLUCINATIONS. If you cannot find a specific fact, DO NOT MAKE ONE UP.
-      2. If you find negative/controversial info, IGNORE IT. Focus only on professional achievements.
-      3. If you cannot verify a claim, do not include it.
+      TASK:
+      1. Use Google Search to find a REAL hook (podcast, recent investment, or specific business philosophy).
+      2. Write a 1-to-1 personalized email from "AheadWithAI" to the target.
 
-      TASK 2: FALLBACK (Safe Mode)
-      If Google Search returns nothing useful:
-      - Infer their profile based *strictly* on their Job Title (${role}) and Company Industry.
-      - CLEARLY STATE: "Based on the typical responsibilities of a ${role}..." so the user knows it is an inference.
+      ⚠️ STRICT RULES FOR THE EMAIL:
+      - ZERO PLACEHOLDERS. No [Your Company], no [Insert Mission]. 
+      - Talk as AheadWithAI. Our mission is to "Automate the grunt work of sales using custom AI agents so founders can focus on closing."
+      - DO NOT ask the user to "describe their mission." YOU describe how AheadWithAI helps ${company} specifically.
+      - Be direct. Instead of "potential synergies," say "I saw your investment in X and it's clear you value Y; here is how our AI agents scale that."
+      - If you use a bracket [], the response is a failure.
 
       OUTPUT REQUIREMENTS (Strict JSON):
-      1. "personality": Professional profile.
-      2. "painPoints": 5 likely business challenges.
-      3. "iceBreakers": 3 conversation starters. 
-         - IF REAL DATA FOUND: Reference the specific podcast/article.
-         - IF NO DATA: Ask a smart question about their industry trends.
-      4. "emailDraft": A professional email.
+      1. "personality": Professional profile based on search.
+      2. "painPoints": 5 specific challenges for a ${role}.
+      3. "iceBreakers": 3 specific hooks found via Google.
+      4. "emailDraft": A ready-to-send, high-conversion email.
 
       RETURN ONLY JSON. Start with { and end with }.
     `;
