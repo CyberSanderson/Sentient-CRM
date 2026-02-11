@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap
+  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, CreditCard
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore'; 
+import { collection, addDoc, doc, updateDoc, getDocs, onSnapshot } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
@@ -18,11 +18,10 @@ const safeList = (data: any): string[] => {
   return ["No data available"];
 };
 
-// 🛡️ HELPER 2: Handle Text/Objects Safely (The Fix for Error #31)
+// 🛡️ HELPER 2: Handle Text/Objects Safely
 const renderSafe = (data: any) => {
   if (!data) return "No analysis available.";
   if (typeof data === 'string') return data;
-  // If AI returns an object (like the error showed), extract the useful text
   if (typeof data === 'object') {
     return data.style || data.communication || data.summary || Object.values(data).join(". ");
   }
@@ -41,6 +40,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
+  // 🟢 STATE FOR CREDIT TRACKING
+  const [userStats, setUserStats] = useState({ plan: 'free', usageCount: 0 });
+  
   // 🔒 YOUR ADMIN EMAIL
   const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
@@ -57,7 +59,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. ADMIN LOGIC
+  // 1. REAL-TIME CREDIT LISTENER (The Fix)
+  useEffect(() => {
+    if (user && !isDemoMode) {
+        // Listen to the user's document in Firestore continuously
+        const unsub = onSnapshot(doc(db, 'users', user.id), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                setUserStats(docSnapshot.data() as any);
+            } else {
+                // Default if new user
+                setUserStats({ plan: 'free', usageCount: 0 });
+            }
+        });
+        return () => unsub(); // Cleanup listener on unmount
+    }
+  }, [user, isDemoMode]);
+
+  // 2. ADMIN LOGIC
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -76,11 +94,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, { usageCount: 0, plan: 'pro' }); 
         alert("Grant Successful!");
-        window.location.reload();
     } catch (e) { alert("Grant failed"); }
   };
 
-  // 2. RESEARCH LOGIC
+  // 3. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -96,12 +113,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         setLoading(false);
         return;
       }
-      // Decrease demo credits
       const newCredits = demoCredits - 1;
       setDemoCredits(newCredits);
       localStorage.setItem('sentient_demo_credits', newCredits.toString());
-      
-      // Simulating loading for demo effect
       await new Promise(r => setTimeout(r, 2000));
       alert("Please sign in to run live AI analysis.");
       setLoading(false);
@@ -110,21 +124,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
     // B. Live User
     try {
-      // 🛑 Safety Check
-      if (!auth) throw new Error("Firebase Auth not initialized in src/lib/firebase.ts");
+      if (!auth) throw new Error("Firebase Auth not initialized");
 
-      // Step 1: Clerk Token
       const clerkToken = await getToken({ template: 'firebase' });
       if (!clerkToken) throw new Error("Clerk token missing.");
 
-      // Step 2: Firebase Handshake
       const provider = new OAuthProvider('oidc.clerk'); 
       const credential = provider.credential({ idToken: clerkToken });
       
       const firebaseResult = await signInWithCredential(auth, credential);
       const firebaseIdToken = await firebaseResult.user.getIdToken();
 
-      // Step 3: Backend Call
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
@@ -139,7 +149,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       if (!response.ok) {
         if (response.status === 403) {
             const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
-            // 🚀 UPDATED LINK: Pointing to your new $29 Founder's Rate
             if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01';
         } else {
             alert(data.error || "Analysis failed.");
@@ -169,6 +178,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     } catch (error) { alert("Failed to save lead."); } 
     finally { setSaving(false); }
   };
+
+  // Helper variables for UI
+  const isPro = userStats.plan === 'pro' || userStats.plan === 'premium' || isAdmin;
+  const limit = isPro ? 100 : 3;
+  const creditsLeft = Math.max(0, limit - (userStats.usageCount || 0));
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
@@ -211,20 +225,52 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       )}
 
-      {/* HEADER */}
+      {/* HEADER WITH REAL-TIME CREDITS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
           <p className="text-slate-500 text-sm">Real-time intelligence via Sentient AI Engine.</p>
         </div>
-        {isDemoMode && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
-            <Zap size={16} className="text-brand-600 fill-brand-600" />
-            <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
-              {demoCredits} Demo Searches Left
-            </span>
-          </div>
-        )}
+        
+        {/* 🟢 DYNAMIC CREDIT DISPLAY */}
+        <div className="flex items-center gap-3">
+            {isDemoMode ? (
+                <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
+                    <Zap size={16} className="text-brand-600 fill-brand-600" />
+                    <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
+                    {demoCredits} Demo Searches Left
+                    </span>
+                </div>
+            ) : (
+                <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <div className="text-right px-2">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {isPro ? 'Pro Plan' : 'Free Plan'}
+                        </div>
+                        <div className={`text-sm font-black ${creditsLeft === 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                            {creditsLeft} / {limit} Credits
+                        </div>
+                    </div>
+                    
+                    {/* Upgrade Button (Only shows if Free Plan) */}
+                    {!isPro && (
+                        <button 
+                            onClick={() => window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01'}
+                            className="bg-brand-600 hover:bg-brand-500 text-white p-2 rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 text-xs font-bold px-3"
+                        >
+                            <CreditCard size={14} /> Upgrade
+                        </button>
+                    )}
+                    
+                    {/* Pro Badge (Only shows if Pro) */}
+                    {isPro && (
+                        <div className="bg-brand-100 text-brand-700 p-2 rounded-lg">
+                            <Shield size={18} className="fill-brand-200" />
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -266,17 +312,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                         </button>
                     </div>
 
-                    {/* PERSONALITY SECTION (CRASH PROOF) */}
+                    {/* PERSONALITY SECTION */}
                     <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
                         <div className="flex items-center gap-2 mb-3 text-brand-600">
                           <BrainCircuit size={20} />
                           <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
                         </div>
-                        {/* 🌟 The Universal Adapter is used here: */}
                         <p className="text-slate-700">{renderSafe(dossier.personality)}</p>
                     </div>
 
-                    {/* PAIN POINTS (CRASH PROOF) */}
+                    {/* PAIN POINTS */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
                              <div className="flex items-center gap-2 mb-4 text-red-600">
