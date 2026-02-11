@@ -41,7 +41,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // 🟢 STATE FOR CREDIT TRACKING
-  const [userStats, setUserStats] = useState({ plan: 'free', usageCount: 0 });
+  // Added lastUsageDate and businessName to state for smarter tracking
+  const [userStats, setUserStats] = useState({ plan: 'free', usageCount: 0, lastUsageDate: '', businessName: '' });
   
   // 🔒 YOUR ADMIN EMAIL
   const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
@@ -59,36 +60,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     return saved !== null ? parseInt(saved) : 2; 
   });
 
-  // 1. MANUAL SYNC FUNCTION
-  const fetchUserStats = useCallback(async () => {
-    if (user && !isDemoMode) {
-        try {
-            const docRef = doc(db, 'users', user.id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setUserStats(docSnap.data() as any);
-            }
-        } catch (error) {
-            console.error("Error syncing stats:", error);
-        }
-    }
-  }, [user, isDemoMode]);
-
-  // 2. REAL-TIME LISTENER
+  // 1. REAL-TIME LISTENER
   useEffect(() => {
     if (user && !isDemoMode) {
         const unsub = onSnapshot(doc(db, 'users', user.id), (docSnapshot) => {
             if (docSnapshot.exists()) {
                 setUserStats(docSnapshot.data() as any);
             } else {
-                setUserStats({ plan: 'free', usageCount: 0 });
+                setUserStats({ plan: 'free', usageCount: 0, lastUsageDate: '', businessName: '' });
             }
         });
         return () => unsub(); 
     }
   }, [user, isDemoMode]);
 
-  // 3. ADMIN LOGIC
+  // 2. ADMIN LOGIC
   useEffect(() => {
     if (isAdmin) {
       const fetchUsers = async () => {
@@ -110,7 +96,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     } catch (e) { alert("Grant failed"); }
   };
 
-  // 4. RESEARCH LOGIC
+  // 3. RESEARCH LOGIC
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authLoaded) return;
@@ -154,7 +140,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${firebaseIdToken}` 
         },
-        body: JSON.stringify({ prospectName: name, company, role })
+        body: JSON.stringify({ 
+          prospectName: name, 
+          company, 
+          role,
+          // Dynamic Sender Info
+          senderName: user?.fullName || "A Sales Professional",
+          senderBusiness: userStats.businessName || "their professional services business"
+        })
       });
 
       const data = await response.json();
@@ -172,16 +165,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       // SUCCESS!
       setDossier(data);
       
-      // 🚀 CRITICAL FIX: Use setDoc with merge: true
-      // This creates the document if it's missing (fixing the "No document" error)
+      // ✅ THE FIX: Smart Date Check
+      // This logic ensures we don't accidentally overwrite the Daily Reset
       if (user) {
-          const currentCount = userStats.usageCount || 0;
-          await setDoc(doc(db, 'users', user.id), { 
-              usageCount: currentCount + 1 
-          }, { merge: true }); // <--- THIS PREVENTS THE CRASH
+          const today = new Date().toISOString().split('T')[0];
           
-          // Force local update immediately so UI is snappy
-          setUserStats(prev => ({ ...prev, usageCount: currentCount + 1 }));
+          // 1. Check if the local stats are stale (from yesterday)
+          let currentCount = userStats.usageCount || 0;
+          
+          // If the last usage date in the database is NOT today, that means
+          // the backend reset logic has fired (or should have), so we start from 0.
+          if (userStats.lastUsageDate !== today) {
+              currentCount = 0; 
+          }
+
+          const newCount = currentCount + 1;
+
+          // 2. Write the NEW correct count to the database
+          // We use setDoc with merge:true to be safe against missing documents
+          await setDoc(doc(db, 'users', user.id), { 
+              usageCount: newCount,
+              lastUsageDate: today,
+              businessName: userStats.businessName || "" // Persist the business name too
+          }, { merge: true });
+          
+          // 3. Update the UI instantly
+          setUserStats(prev => ({ 
+              ...prev, 
+              usageCount: newCount,
+              lastUsageDate: today 
+          }));
       }
 
     } catch (error: any) {
@@ -298,6 +311,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
             )}
         </div>
       </div>
+
+      {/* 🚀 SETTINGS BOX (User defines their business here) */}
+      {!isDemoMode && (
+          <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4">
+              <div className="bg-brand-600 p-2 rounded-lg text-white">
+                  <Building2 size={20} />
+              </div>
+              <div className="flex-1">
+                  <h3 className="text-xs font-bold text-brand-900 uppercase">My Business Name (For Email Signature)</h3>
+                  <input 
+                    className="w-full bg-transparent border-b border-brand-200 focus:border-brand-500 outline-none text-sm font-medium text-brand-800"
+                    placeholder="e.g. AheadWithAI Consulting"
+                    value={userStats.businessName}
+                    onChange={async (e) => {
+                        const val = e.target.value;
+                        setUserStats(prev => ({ ...prev, businessName: val }));
+                        // Auto-save to database on type
+                        if(user) await setDoc(doc(db, 'users', user.id), { businessName: val }, { merge: true });
+                    }}
+                  />
+              </div>
+          </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
