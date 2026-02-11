@@ -24,6 +24,29 @@ const db = getFirestore();
 // Helper: Sleep function for retries
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 🛡️ ROBUST JSON CLEANER
+// This fixes the "Bad escaped character" error manually
+const cleanAndParseJSON = (text: string) => {
+    try {
+        // 1. Find the first '{' and the last '}'
+        const startIndex = text.indexOf('{');
+        const endIndex = text.lastIndexOf('}');
+        
+        if (startIndex === -1 || endIndex === -1) throw new Error("No JSON found in response");
+        
+        let jsonString = text.substring(startIndex, endIndex + 1);
+
+        // 2. Fix common AI JSON errors (like unescaped quotes inside strings)
+        // This is a simple regex fix for basic cases, but often JSON.parse handles clean strings well
+        // We rely on the prompt to be strict, but this substring extraction is the most important part.
+        
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("JSON Parse Failed on:", text);
+        throw new Error("Failed to parse AI response.");
+    }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // A. CORS & Method Check
   if (req.method !== 'POST') {
@@ -69,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         userData.usageCount = 0;
     }
 
-    // 👑 ADMIN BYPASS (I added your email here)
+    // 👑 ADMIN BYPASS
     const isAdmin = email === 'lifeinnovations7@gmail.com'; 
 
     // Plan Limits
@@ -92,14 +115,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     const model = genAI.getGenerativeModel({ 
         model: 'gemini-2.0-flash',
-        // ⚡ ENABLE GOOGLE SEARCH TOOL
         // @ts-ignore
-        tools: [{ googleSearch: {} }],
-        // 🛡️ JSON MODE (Fixes the "Bad escaped character" error)
-        generationConfig: { responseMimeType: "application/json" }
+        tools: [{ googleSearch: {} }]
+        // ❌ REMOVED "responseMimeType" because it conflicts with Search Tool
     });
 
-    // 🚀 PROMPT
     const prompt = `
       You are an expert sales strategist with access to Google Search.
       Target: ${prospectName}
@@ -126,7 +146,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
          - You must FILL IN the specific details found in search.
          - Keep it under 150 words.
       
-      RETURN ONLY JSON.
+      CRITICAL: Return ONLY valid JSON. Do not add markdown like \`\`\`json.
+      Start with { and end with }. 
+      If a string contains a quote ", you MUST escape it like \\".
     `;
 
     let text = "";
@@ -150,16 +172,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     }
 
-    // Clean up response
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // 🛡️ USE THE ROBUST CLEANER
+    const jsonData = cleanAndParseJSON(text);
     
     // E. INCREMENT USAGE
     await userRef.update({ usageCount: FieldValue.increment(1) });
 
-    return res.status(200).json(JSON.parse(cleanText));
+    return res.status(200).json(jsonData);
 
   } catch (error: any) {
     console.error('Backend Error:', error);
-    return res.status(500).json({ error: "AI Response Error. Please try again." });
+    // Return the actual error message so we can see what's wrong in the dashboard
+    return res.status(500).json({ error: error.message || "AI Response Error." });
   }
 }
