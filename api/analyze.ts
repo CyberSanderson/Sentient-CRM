@@ -118,31 +118,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 🛡️ SAFETY PROMPT (Prevents Lies)
     const prompt = `
-      You are the lead Sales Strategist for "AheadWithAI", a company that builds custom AI Marketing Systems and Lead Generation Agents.
+      You are a Lead Sales Researcher for AheadWithAI. 
       Target: ${prospectName}
       Role: ${role}
       Company: ${company}
 
-      TASK:
-      1. Use Google Search to find a REAL hook (podcast, recent investment, or specific business philosophy).
-      2. Write a 1-to-1 personalized email from "AheadWithAI" to the target.
+      STEP 1: SEARCH AUDIT (Internal Only)
+      - Use Google Search to find this person's LinkedIn, Twitter/X, or personal website.
+      - Find EXACT quotes, specific company names, or recent project launches.
+      - If you find multiple people with this name, look for the one associated with "${company}" or "${role}".
+      - If NO verifiable match is found, DO NOT make up a story. Skip to STEP 2.
 
-      ⚠️ STRICT RULES FOR THE EMAIL:
-      - ZERO PLACEHOLDERS. No [Your Company], no [Insert Mission]. 
-      - Talk as AheadWithAI. Our mission is to "Automate the grunt work of sales using custom AI agents so founders can focus on closing."
-      - DO NOT ask the user to "describe their mission." YOU describe how AheadWithAI helps ${company} specifically.
-      - Be direct. Instead of "potential synergies," say "I saw your investment in X and it's clear you value Y; here is how our AI agents scale that."
-      - If you use a bracket [], the response is a failure.
+      STEP 2: THE "ZERO HALLUCINATION" RESPONSE
+      - "personality": Describe their professional focus. If the data is sparse, stick to the known facts of their company's industry.
+      - "painPoints": Identify 5 real challenges. If you are guessing based on the role, start the sentence with "Typically, someone in a role like this faces..."
+      - "iceBreakers": Reference a specific, REAL event (e.g., "I saw your company recently raised X" or "I read your post about Y"). 
+      - "emailDraft": A 1-to-1 email from AheadWithAI. NO BRACKETS. 
 
-      OUTPUT REQUIREMENTS (Strict JSON):
-      1. "personality": Professional profile based on search.
-      2. "painPoints": 5 specific challenges for a ${role}.
-      3. "iceBreakers": 3 specific hooks found via Google.
-      4. "emailDraft": A ready-to-send, high-conversion email.
-
-      RETURN ONLY JSON. Start with { and end with }.
+      ⚠️ ABSOLUTE RULES:
+      1. If you cannot find evidence of the person, do not invent companies (like "Servengines"). 
+      2. If search fails, base the analysis purely on the industry standards for a ${role} at a ${company}.
+      3. Use your AheadWithAI identity: "We build AI Sales Agents that automate the research you're reading right now."
     `;
-
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     
