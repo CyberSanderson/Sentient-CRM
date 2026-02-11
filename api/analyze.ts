@@ -28,23 +28,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // B. SECURITY: Verify Token
+    // ============================================================
+    // 🔒 B. SECURITY: VERIFY TOKEN (DO NOT REMOVE)
+    // This ensures only logged-in users can run this function.
+    // ============================================================
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new Error('Unauthorized: Missing Token');
     }
     const token = authHeader.split('Bearer ')[1];
 
-    // Verify Token
+    // Verify the token with Firebase
     const decodedToken = await getAuth().verifyIdToken(token);
     const userId = decodedToken.uid;
     const email = decodedToken.email;
+    // ============================================================
+    // 🔒 END SECURITY CHECK
+    // ============================================================
 
     // C. CHECK OR CREATE USER (Auto-Heal Logic)
     const userRef = db.collection('users').doc(userId);
     let userDoc = await userRef.get();
 
-    // 🚨 If user is missing, create them now!
     if (!userDoc.exists) {
         console.log(`Creating missing user profile for ${email}`);
         await userRef.set({
@@ -54,7 +59,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             createdAt: new Date(),
             lastUsageDate: new Date().toISOString().split('T')[0]
         });
-        // Fetch it again now that it exists
         userDoc = await userRef.get();
     }
 
@@ -67,9 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         userData.usageCount = 0;
     }
 
-    // 👑 ADMIN BYPASS: Enter your email here to get unlimited credits
-    // Replace 'your-email@gmail.com' with your actual admin email
-    const isAdmin = email === 'lifeinnovations7@gmail.com'; 
+    // 👑 ADMIN BYPASS (Put your email here)
+    const isAdmin = email === 'YOUR_EMAIL@gmail.com'; 
 
     // Plan Limits
     const isPro = userData.plan === 'pro' || userData.plan === 'premium' || isAdmin;
@@ -89,8 +92,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // ⚡ SWITCHED TO 1.5-FLASH FOR STABILITY (Fixes 429 Errors)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // ⚡ FIX: Using 'gemini-pro' (The Universal Stable Model)
+    // This fixes the [404 Not Found] error while keeping security intact.
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const prompt = `Act as a sales strategist. Analyze ${prospectName}, ${role} at ${company}. Return strict JSON with personality, painPoints (array), iceBreakers (array), emailDraft.`;
 
@@ -104,7 +108,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('Backend Error:', error);
-    // If it's a rate limit error, tell the user to wait
     if (error.message?.includes('429') || error.message?.includes('Resource exhausted')) {
         return res.status(429).json({ error: "System busy. Please try again in 1 minute." });
     }
