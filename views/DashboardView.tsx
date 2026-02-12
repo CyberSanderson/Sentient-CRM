@@ -28,55 +28,6 @@ const renderSafe = (data: any) => {
   return String(data);
 };
 
-// 🎭 HELPER 3: Generate a "Smart Preview" Dossier for Demo Mode
-// This simulates intelligence based on the Job Title without hitting the API
-const generatePreviewDossier = (name: string, company: string, role: string): Dossier => {
-  const r = role.toLowerCase();
-  
-  // 1. Determine "Archetype" based on job title
-  let type = "General";
-  if (r.includes('ceo') || r.includes('founder') || r.includes('vp') || r.includes('director') || r.includes('head')) type = "Executive";
-  else if (r.includes('sales') || r.includes('revenue') || r.includes('account') || r.includes('biz')) type = "Sales";
-  else if (r.includes('market') || r.includes('brand') || r.includes('growth')) type = "Marketing";
-
-  // 2. Select Pain Points based on Archetype
-  const pains: Record<string, string[]> = {
-    "Executive": [
-      `Aligning ${company}'s long-term strategy with daily execution.`,
-      `Reducing operational friction in the ${role} decision loop.`,
-      "Optimizing burn rate while scaling growth."
-    ],
-    "Sales": [
-      "Shortening deal cycles in a tightening market.",
-      `Increasing pipeline velocity at ${company}.`,
-      "Differentiating from low-cost competitors."
-    ],
-    "Marketing": [
-      "Proving ROI on recent campaign spend.",
-      "Cutting through noise to reach decision makers.",
-      "Scaling lead gen without scaling headcount."
-    ],
-    "General": [
-      `Scaling operations at ${company} without increasing headcount.`,
-      `Integrating new tech stacks with legacy systems.`,
-      `Reducing friction in the current ${role} workflow.`
-    ]
-  };
-
-  const selectedPains = pains[type] || pains["General"];
-
-  return {
-    personality: `Based on their role as ${role}, ${name} likely fits the '${type === 'Executive' ? 'Strategic/Visionary' : 'Tactical/Execution'}' archetype. Their digital footprint suggests a focus on efficiency, data-driven decisions, and direct ROI over relationship building.`,
-    painPoints: selectedPains,
-    iceBreakers: [
-      `"I saw the recent news about ${company}'s growth trajectory—impressive work."`,
-      `"Noticed you've been in the ${role} space for a while; curious how you see the market shifting."`,
-      `"I read your recent post about ${type === 'Sales' ? 'pipeline generation' : 'leadership'}—it resonated with our approach."`
-    ],
-    emailDraft: `Subject: Idea for ${company}\n\nHi ${name.split(' ')[0]},\n\nI've been following ${company}'s growth and noticed you're leading the charge on the ${role} side.\n\nMost leaders in your position are struggling to balance scale with efficiency right now. We've built a specific workflow that solves this.\n\nWorth a 5-minute chat?\n\nBest,\n[Your Name]`
-  };
-};
-
 interface DashboardViewProps {
   leads: Lead[];
   isDemoMode: boolean;
@@ -105,11 +56,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   
   // 🆕 DEMO MODAL STATE
   const [showDemoModal, setShowDemoModal] = useState(false);
-
-  const [demoCredits, setDemoCredits] = useState(() => {
-    const saved = localStorage.getItem('sentient_demo_credits');
-    return saved !== null ? parseInt(saved) : 2; 
-  });
 
   // 1. REAL-TIME LISTENER
   useEffect(() => {
@@ -156,29 +102,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // 🛑 A. DEMO MODE LOGIC
+    // 🛑 A. DEMO MODE LOGIC (The "Cliffhanger")
     if (isDemoMode) {
+      // 1. Build Anticipation (Fake loading for 1.2 seconds)
+      await new Promise(r => setTimeout(r, 1200));
       
-      // 1. Check if they have credits left
-      if (demoCredits <= 0) {
-        setShowDemoModal(true);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Fake Loading Experience
-      await new Promise(r => setTimeout(r, 1500));
-      
-      // 3. Generate a "Smart" Dossier based on job title
-      const previewData = generatePreviewDossier(name, company, role);
-      setDossier(previewData);
-
-      // 4. Deduct Credit
-      const newCredits = demoCredits - 1;
-      setDemoCredits(newCredits);
-      localStorage.setItem('sentient_demo_credits', newCredits.toString());
-      
+      // 2. Stop them at the gate
       setLoading(false);
+      setShowDemoModal(true);
       return;
     }
 
@@ -287,19 +218,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
              </div>
              
              <h2 className="text-2xl font-black text-slate-900 mb-2">
-                 {demoCredits <= 0 ? "Demo Limit Reached" : "Save Your Research"}
+                 Research Ready
              </h2>
              <p className="text-slate-500 mb-8 leading-relaxed">
-               {demoCredits <= 0 
-                ? "You've used your free demo searches. Create a free account to continue researching."
-                : "Create a free account to save this dossier, access the full Deep Dive features, and generate unlimited leads."}
+               We've queued up the deep-dive analysis for <span className="font-bold text-slate-800">{name || "your prospect"}</span>.
+               <br/><br/>
+               Create a free account to unlock their psychological profile, pain points, and email strategy instantly.
              </p>
              
              <div className="flex flex-col gap-3">
                <div className="w-full">
                  <SignUpButton mode="modal">
                    <button className="w-full py-3.5 px-6 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2">
-                     <Sparkles size={18} /> Start Free Account
+                     <Sparkles size={18} /> Reveal Dossier (Free)
                    </button>
                  </SignUpButton>
                </div>
@@ -313,7 +244,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
              </div>
 
              <button onClick={() => setShowDemoModal(false)} className="mt-6 text-xs font-medium text-slate-400 hover:text-slate-600 underline">
-               Back to Demo
+               Go Back
              </button>
           </div>
         </div>
@@ -370,7 +301,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
                     <Zap size={16} className="text-brand-600 fill-brand-600" />
                     <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
-                    {demoCredits} Demo Searches Left
+                    Try For Free
                     </span>
                 </div>
             ) : (
