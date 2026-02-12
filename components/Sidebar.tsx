@@ -22,7 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) =
   const { user } = useUser(); 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
-  // 🔒 ADMIN CHECK: Replace with your actual email
+  // 🔒 ADMIN CHECK
   const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
   // Helper for Desktop Nav Items
@@ -110,19 +110,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) =
       {/* 🖥️ DESKTOP SIDEBAR */}
       <div className="hidden md:flex w-72 bg-slate-900 text-white p-6 flex-col border-r border-slate-800 h-screen sticky top-0">
         
-        {/* LOGO SECTION */}
-        <div className="flex items-center gap-3 mb-10">
-          {/* 👇 LOGO IMAGE */}
+        {/* LOGO SECTION - CLICK TO GO HOME */}
+        <a href="/" className="flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity cursor-pointer">
           <img 
             src="/sentient-prospect-logo.png" 
             alt="Sentient Logo" 
             className="h-10 w-auto object-contain" 
           />
-          {/* Text is optional - remove if your logo already has text */}
           <span className="text-xl font-bold tracking-tight text-white">
             SENTIENT
           </span>
-        </div>
+        </a>
 
         <nav className="flex-1 space-y-2">
           <DesktopItem view="dashboard" icon={LayoutDashboard} label="Research Center" />

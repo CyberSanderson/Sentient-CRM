@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, ArrowRight, Shield, Gift, Zap, CreditCard
+  Target, MessageCircle, Mail, Shield, Zap, CreditCard, Lock
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
-import { useAuth, useUser } from '@clerk/clerk-react'; 
+// 👇 Added SignInButton and SignUpButton imports
+import { useAuth, useUser, SignInButton, SignUpButton } from '@clerk/clerk-react'; 
 
 // 🛡️ HELPER 1: Handle Lists Safely
 const safeList = (data: any): string[] => {
@@ -41,7 +42,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // 🟢 STATE FOR CREDIT TRACKING
-  // Added lastUsageDate and businessName to state for smarter tracking
   const [userStats, setUserStats] = useState({ plan: 'free', usageCount: 0, lastUsageDate: '', businessName: '' });
   
   // 🔒 YOUR ADMIN EMAIL
@@ -55,6 +55,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   
+  // 🆕 DEMO MODAL STATE
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
   const [demoCredits, setDemoCredits] = useState(() => {
     const saved = localStorage.getItem('sentient_demo_credits');
     return saved !== null ? parseInt(saved) : 2; 
@@ -105,23 +108,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // A. Demo Mode
+    // A. Demo Mode Logic
     if (isDemoMode) {
-      if (demoCredits <= 0) {
-        alert("🚀 Demo Limit Reached! Sign up for a free account.");
-        setLoading(false);
-        return;
+      // Logic: Fake the loading for 1.5s, then show the Login Modal
+      await new Promise(r => setTimeout(r, 1500));
+      
+      // If they have credits, we pretend to use one (to show the mechanic), 
+      // but we ALWAYS show the modal because the demo doesn't actually hit the AI.
+      if (demoCredits > 0) {
+        const newCredits = demoCredits - 1;
+        setDemoCredits(newCredits);
+        localStorage.setItem('sentient_demo_credits', newCredits.toString());
       }
-      const newCredits = demoCredits - 1;
-      setDemoCredits(newCredits);
-      localStorage.setItem('sentient_demo_credits', newCredits.toString());
-      await new Promise(r => setTimeout(r, 2000));
-      alert("Please sign in to run live AI analysis.");
+      
       setLoading(false);
+      setShowDemoModal(true); // 👈 Trigger the modal instead of alert
       return;
     }
 
-    // B. Live User
+    // B. Live User Logic
     try {
       if (!auth) throw new Error("Firebase Auth not initialized");
 
@@ -144,7 +149,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           prospectName: name, 
           company, 
           role,
-          // Dynamic Sender Info
           senderName: user?.fullName || "A Sales Professional",
           senderBusiness: userStats.businessName || "their professional services business"
         })
@@ -162,39 +166,23 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         return;
       }
 
-      // SUCCESS!
       setDossier(data);
       
-      // ✅ THE FIX: Smart Date Check
-      // This logic ensures we don't accidentally overwrite the Daily Reset
       if (user) {
           const today = new Date().toISOString().split('T')[0];
-          
-          // 1. Check if the local stats are stale (from yesterday)
           let currentCount = userStats.usageCount || 0;
-          
-          // If the last usage date in the database is NOT today, that means
-          // the backend reset logic has fired (or should have), so we start from 0.
           if (userStats.lastUsageDate !== today) {
               currentCount = 0; 
           }
-
           const newCount = currentCount + 1;
 
-          // 2. Write the NEW correct count to the database
-          // We use setDoc with merge:true to be safe against missing documents
           await setDoc(doc(db, 'users', user.id), { 
               usageCount: newCount,
               lastUsageDate: today,
-              businessName: userStats.businessName || "" // Persist the business name too
+              businessName: userStats.businessName || "" 
           }, { merge: true });
           
-          // 3. Update the UI instantly
-          setUserStats(prev => ({ 
-              ...prev, 
-              usageCount: newCount,
-              lastUsageDate: today 
-          }));
+          setUserStats(prev => ({ ...prev, usageCount: newCount, lastUsageDate: today }));
       }
 
     } catch (error: any) {
@@ -218,7 +206,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     finally { setSaving(false); }
   };
 
-  // Helper variables for UI
   const isPro = userStats.plan === 'pro' || userStats.plan === 'premium' || isAdmin;
   const limit = isPro ? 100 : 3;
   const creditsLeft = Math.max(0, limit - (userStats.usageCount || 0));
@@ -226,6 +213,46 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
+      {/* 🛑 DEMO CONVERSION MODAL */}
+      {showDemoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-slate-100 relative overflow-hidden">
+             {/* Background Decoration */}
+             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 to-indigo-600" />
+             
+             <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Lock className="text-brand-600" size={32} />
+             </div>
+             
+             <h2 className="text-2xl font-black text-slate-900 mb-2">Unlock Full Analysis</h2>
+             <p className="text-slate-500 mb-8 leading-relaxed">
+               You've seen the preview. Create a <span className="font-bold text-slate-700">free account</span> to run live, deep-dive research on real prospects immediately.
+             </p>
+             
+             <div className="flex flex-col gap-3">
+               <div className="w-full">
+                 <SignUpButton mode="modal">
+                   <button className="w-full py-3.5 px-6 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2">
+                     <Sparkles size={18} /> Start Free Account
+                   </button>
+                 </SignUpButton>
+               </div>
+               <div className="w-full">
+                  <SignInButton mode="modal">
+                   <button className="w-full py-3.5 px-6 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all">
+                     Log In
+                   </button>
+                  </SignInButton>
+               </div>
+             </div>
+
+             <button onClick={() => setShowDemoModal(false)} className="mt-6 text-xs font-medium text-slate-400 hover:text-slate-600 underline">
+               Back to Demo
+             </button>
+          </div>
+        </div>
+      )}
+
       {/* 🛡️ GOD MODE PANEL */}
       {isAdmin && (
         <div className="bg-slate-900 rounded-2xl p-6 border-2 border-red-900 shadow-2xl mb-8">
@@ -291,7 +318,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                         </div>
                     </div>
                     
-                    {/* Upgrade Button (Only shows if Free Plan) */}
                     {!isPro && (
                         <button 
                             onClick={() => window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01'}
@@ -301,7 +327,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                         </button>
                     )}
                     
-                    {/* Pro Badge (Only shows if Pro) */}
                     {isPro && (
                         <div className="bg-brand-100 text-brand-700 p-2 rounded-lg">
                             <Shield size={18} className="fill-brand-200" />
@@ -312,7 +337,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       </div>
 
-      {/* 🚀 SETTINGS BOX (User defines their business here) */}
+      {/* 🚀 SETTINGS BOX */}
       {!isDemoMode && (
           <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4">
               <div className="bg-brand-600 p-2 rounded-lg text-white">
@@ -327,7 +352,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     onChange={async (e) => {
                         const val = e.target.value;
                         setUserStats(prev => ({ ...prev, businessName: val }));
-                        // Auto-save to database on type
                         if(user) await setDoc(doc(db, 'users', user.id), { businessName: val }, { merge: true });
                     }}
                   />
