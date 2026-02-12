@@ -26,8 +26,10 @@
   }
 }
 
-/* Custom Utilities */
+/* 🛠️ CUSTOM UTILITIES & ANIMATIONS */
 @layer utilities {
+  
+  /* Scrollbar Styling */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -38,5 +40,59 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 20px;
+  }
+
+  /* 🌊 HERO ANIMATIONS (The "Alive" Look) */
+  
+  /* 1. FLOAT: Moves elements gently up and down */
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* 2. FLOAT DELAYED: Same movement, but offset so they don't move together */
+  @keyframes float-delayed {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+    100% { transform: translateY(0px); }
+  }
+  .animate-float-delayed {
+    animation: float-delayed 8s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+
+  /* 3. PULSE GLOW: Makes the center orb breathe */
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+  .animate-pulse-glow {
+    animation: pulse-glow 4s ease-in-out infinite;
+  }
+
+  /* 4. SCAN LINE: The vertical scanning bar */
+  @keyframes scan-line {
+    0% { top: -10%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 110%; opacity: 0; }
+  }
+  .animate-scan {
+    animation: scan-line 4s linear infinite;
+    background: linear-gradient(to bottom, transparent, rgba(20, 184, 166, 0.5), transparent);
+    box-shadow: 0 0 15px rgba(20, 184, 166, 0.3);
+  }
+
+  /* 5. SLOW SPIN: Optional for other elements */
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin-slow {
+    animation: spin-slow 12s linear infinite;
   }
 }
