@@ -28,22 +28,52 @@ const renderSafe = (data: any) => {
   return String(data);
 };
 
-// 🎭 HELPER 3: Generate a "Preview" Dossier for Demo Mode
+// 🎭 HELPER 3: Generate a "Smart Preview" Dossier for Demo Mode
+// This simulates intelligence based on the Job Title without hitting the API
 const generatePreviewDossier = (name: string, company: string, role: string): Dossier => {
-  return {
-    personality: `Based on public data, ${name} appears to be a Driver/navigational thinker. Their digital footprint suggests they value efficiency and direct ROI over relationship building. At ${company}, they likely focus on scalable systems rather than ad-hoc solutions.`,
-    painPoints: [
-      `Scaling operations at ${company} without increasing headcount.`,
-      `Reducing friction in the current ${role || 'leadership'} decision-making process.`,
-      `Integrating new tech stacks with legacy systems at ${company}.`
+  const r = role.toLowerCase();
+  
+  // 1. Determine "Archetype" based on job title
+  let type = "General";
+  if (r.includes('ceo') || r.includes('founder') || r.includes('vp') || r.includes('director') || r.includes('head')) type = "Executive";
+  else if (r.includes('sales') || r.includes('revenue') || r.includes('account') || r.includes('biz')) type = "Sales";
+  else if (r.includes('market') || r.includes('brand') || r.includes('growth')) type = "Marketing";
+
+  // 2. Select Pain Points based on Archetype
+  const pains: Record<string, string[]> = {
+    "Executive": [
+      `Aligning ${company}'s long-term strategy with daily execution.`,
+      `Reducing operational friction in the ${role} decision loop.`,
+      "Optimizing burn rate while scaling growth."
     ],
+    "Sales": [
+      "Shortening deal cycles in a tightening market.",
+      `Increasing pipeline velocity at ${company}.`,
+      "Differentiating from low-cost competitors."
+    ],
+    "Marketing": [
+      "Proving ROI on recent campaign spend.",
+      "Cutting through noise to reach decision makers.",
+      "Scaling lead gen without scaling headcount."
+    ],
+    "General": [
+      `Scaling operations at ${company} without increasing headcount.`,
+      `Integrating new tech stacks with legacy systems.`,
+      `Reducing friction in the current ${role} workflow.`
+    ]
+  };
+
+  const selectedPains = pains[type] || pains["General"];
+
+  return {
+    personality: `Based on their role as ${role}, ${name} likely fits the '${type === 'Executive' ? 'Strategic/Visionary' : 'Tactical/Execution'}' archetype. Their digital footprint suggests a focus on efficiency, data-driven decisions, and direct ROI over relationship building.`,
+    painPoints: selectedPains,
     iceBreakers: [
       `"I saw the recent news about ${company}'s growth trajectory—impressive work."`,
-      `"Noticed you've been in the ${role || 'industry'} space for a while; curious how you see the market shifting."`,
-      `"I read your recent post about efficiency scaling—it really resonated with our approach."`
+      `"Noticed you've been in the ${role} space for a while; curious how you see the market shifting."`,
+      `"I read your recent post about ${type === 'Sales' ? 'pipeline generation' : 'leadership'}—it resonated with our approach."`
     ],
-    emailDraft: `Subject: Quick question re: ${company}\n\nHi ${name.split(' ')[0]},\n\nI've been following ${company}'s growth and noticed you're leading the charge on the ${role || 'operational'} side.\n\nMost leaders in your position are struggling to balance scale with efficiency right now. We've built a specific workflow that solves this for teams like yours.\n\nWorth a 5-minute chat to see if it's a fit?\n\nBest,\n[Your Name]`
-    // 🗑️ REMOVED 'summary' to fix TypeScript error
+    emailDraft: `Subject: Idea for ${company}\n\nHi ${name.split(' ')[0]},\n\nI've been following ${company}'s growth and noticed you're leading the charge on the ${role} side.\n\nMost leaders in your position are struggling to balance scale with efficiency right now. We've built a specific workflow that solves this.\n\nWorth a 5-minute chat?\n\nBest,\n[Your Name]`
   };
 };
 
@@ -139,7 +169,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       // 2. Fake Loading Experience
       await new Promise(r => setTimeout(r, 1500));
       
-      // 3. Generate a "Mock" Dossier
+      // 3. Generate a "Smart" Dossier based on job title
       const previewData = generatePreviewDossier(name, company, role);
       setDossier(previewData);
 
@@ -249,6 +279,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       {showDemoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-slate-100 relative overflow-hidden">
+             {/* Background Decoration */}
              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 to-indigo-600" />
              
              <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -372,7 +403,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       </div>
 
-      {/* 🚀 SETTINGS BOX */}
+      {/* 🚀 SETTINGS BOX (Hidden in Demo) */}
       {!isDemoMode && (
           <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4">
               <div className="bg-brand-600 p-2 rounded-lg text-white">
