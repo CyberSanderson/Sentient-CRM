@@ -7,7 +7,6 @@ import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
-// 👇 Added SignInButton and SignUpButton imports
 import { useAuth, useUser, SignInButton, SignUpButton } from '@clerk/clerk-react'; 
 
 // 🛡️ HELPER 1: Handle Lists Safely
@@ -27,6 +26,25 @@ const renderSafe = (data: any) => {
     return data.style || data.communication || data.summary || Object.values(data).join(". ");
   }
   return String(data);
+};
+
+// 🎭 HELPER 3: Generate a "Preview" Dossier for Demo Mode
+const generatePreviewDossier = (name: string, company: string, role: string): Dossier => {
+  return {
+    personality: `Based on public data, ${name} appears to be a Driver/navigational thinker. Their digital footprint suggests they value efficiency and direct ROI over relationship building. At ${company}, they likely focus on scalable systems rather than ad-hoc solutions.`,
+    painPoints: [
+      `Scaling operations at ${company} without increasing headcount.`,
+      `Reducing friction in the current ${role || 'leadership'} decision-making process.`,
+      `Integrating new tech stacks with legacy systems at ${company}.`
+    ],
+    iceBreakers: [
+      `"I saw the recent news about ${company}'s growth trajectory—impressive work."`,
+      `"Noticed you've been in the ${role || 'industry'} space for a while; curious how you see the market shifting."`,
+      `"I read your recent post about efficiency scaling—it really resonated with our approach."`
+    ],
+    emailDraft: `Subject: Quick question re: ${company}\n\nHi ${name.split(' ')[0]},\n\nI've been following ${company}'s growth and noticed you're leading the charge on the ${role || 'operational'} side.\n\nMost leaders in your position are struggling to balance scale with efficiency right now. We've built a specific workflow that solves this for teams like yours.\n\nWorth a 5-minute chat to see if it's a fit?\n\nBest,\n[Your Name]`
+    // 🗑️ REMOVED 'summary' to fix TypeScript error
+  };
 };
 
 interface DashboardViewProps {
@@ -108,21 +126,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // A. Demo Mode Logic
+    // 🛑 A. DEMO MODE LOGIC
     if (isDemoMode) {
-      // Logic: Fake the loading for 1.5s, then show the Login Modal
+      
+      // 1. Check if they have credits left
+      if (demoCredits <= 0) {
+        setShowDemoModal(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fake Loading Experience
       await new Promise(r => setTimeout(r, 1500));
       
-      // If they have credits, we pretend to use one (to show the mechanic), 
-      // but we ALWAYS show the modal because the demo doesn't actually hit the AI.
-      if (demoCredits > 0) {
-        const newCredits = demoCredits - 1;
-        setDemoCredits(newCredits);
-        localStorage.setItem('sentient_demo_credits', newCredits.toString());
-      }
+      // 3. Generate a "Mock" Dossier
+      const previewData = generatePreviewDossier(name, company, role);
+      setDossier(previewData);
+
+      // 4. Deduct Credit
+      const newCredits = demoCredits - 1;
+      setDemoCredits(newCredits);
+      localStorage.setItem('sentient_demo_credits', newCredits.toString());
       
       setLoading(false);
-      setShowDemoModal(true); // 👈 Trigger the modal instead of alert
       return;
     }
 
@@ -194,7 +220,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   };
 
   const handleSaveLead = async () => {
-    if (!dossier || !user || isDemoMode) return;
+    // Prevent saving in Demo Mode to force signup
+    if (isDemoMode) {
+        setShowDemoModal(true);
+        return;
+    }
+
+    if (!dossier || !user) return;
     setSaving(true);
     try {
       await addDoc(collection(db, 'leads'), {
@@ -217,16 +249,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       {showDemoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-slate-100 relative overflow-hidden">
-             {/* Background Decoration */}
              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 to-indigo-600" />
              
              <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <Lock className="text-brand-600" size={32} />
              </div>
              
-             <h2 className="text-2xl font-black text-slate-900 mb-2">Unlock Full Analysis</h2>
+             <h2 className="text-2xl font-black text-slate-900 mb-2">
+                 {demoCredits <= 0 ? "Demo Limit Reached" : "Save Your Research"}
+             </h2>
              <p className="text-slate-500 mb-8 leading-relaxed">
-               You've seen the preview. Create a <span className="font-bold text-slate-700">free account</span> to run live, deep-dive research on real prospects immediately.
+               {demoCredits <= 0 
+                ? "You've used your free demo searches. Create a free account to continue researching."
+                : "Create a free account to save this dossier, access the full Deep Dive features, and generate unlimited leads."}
              </p>
              
              <div className="flex flex-col gap-3">
