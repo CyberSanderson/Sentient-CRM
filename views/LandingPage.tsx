@@ -123,7 +123,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
               Build a Free Dossier <ArrowRight size={20} />
             </button>
             <button onClick={onDemoClick} className="w-full sm:w-auto h-14 px-8 bg-white backdrop-blur-sm text-slate-900 text-lg font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all hover:border-slate-300 hover:shadow-lg">
-              See Example
+              View Live Demo
             </button>
           </div>
         </div>
