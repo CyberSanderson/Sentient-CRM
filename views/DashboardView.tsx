@@ -7,6 +7,7 @@ import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
+// 👇 Added SignInButton and SignUpButton imports
 import { useAuth, useUser, SignInButton, SignUpButton } from '@clerk/clerk-react'; 
 
 // 🛡️ HELPER 1: Handle Lists Safely
@@ -57,6 +58,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   // 🆕 DEMO MODAL STATE
   const [showDemoModal, setShowDemoModal] = useState(false);
 
+  const [demoCredits, setDemoCredits] = useState(() => {
+    const saved = localStorage.getItem('sentient_demo_credits');
+    return saved !== null ? parseInt(saved) : 2; 
+  });
+
   // 1. REAL-TIME LISTENER
   useEffect(() => {
     if (user && !isDemoMode) {
@@ -102,14 +108,21 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // 🛑 A. DEMO MODE LOGIC (The "Cliffhanger")
+    // A. Demo Mode Logic
     if (isDemoMode) {
-      // 1. Build Anticipation (Fake loading for 1.2 seconds)
-      await new Promise(r => setTimeout(r, 1200));
+      // Logic: Fake the loading for 1.5s, then show the Login Modal
+      await new Promise(r => setTimeout(r, 1500));
       
-      // 2. Stop them at the gate
+      // If they have credits, we pretend to use one (to show the mechanic), 
+      // but we ALWAYS show the modal because the demo doesn't actually hit the AI.
+      if (demoCredits > 0) {
+        const newCredits = demoCredits - 1;
+        setDemoCredits(newCredits);
+        localStorage.setItem('sentient_demo_credits', newCredits.toString());
+      }
+      
       setLoading(false);
-      setShowDemoModal(true);
+      setShowDemoModal(true); // 👈 Trigger the modal instead of alert
       return;
     }
 
@@ -181,13 +194,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   };
 
   const handleSaveLead = async () => {
-    // Prevent saving in Demo Mode to force signup
-    if (isDemoMode) {
-        setShowDemoModal(true);
-        return;
-    }
-
-    if (!dossier || !user) return;
+    if (!dossier || !user || isDemoMode) return;
     setSaving(true);
     try {
       await addDoc(collection(db, 'leads'), {
@@ -217,20 +224,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <Lock className="text-brand-600" size={32} />
              </div>
              
-             <h2 className="text-2xl font-black text-slate-900 mb-2">
-                 Research Ready
-             </h2>
+             <h2 className="text-2xl font-black text-slate-900 mb-2">Unlock Full Analysis</h2>
              <p className="text-slate-500 mb-8 leading-relaxed">
-               We've queued up the deep-dive analysis for <span className="font-bold text-slate-800">{name || "your prospect"}</span>.
-               <br/><br/>
-               Create a free account to unlock their psychological profile, pain points, and email strategy instantly.
+               You've seen the preview. Create a <span className="font-bold text-slate-700">free account</span> to run live, deep-dive research on real prospects immediately.
              </p>
              
              <div className="flex flex-col gap-3">
                <div className="w-full">
                  <SignUpButton mode="modal">
                    <button className="w-full py-3.5 px-6 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2">
-                     <Sparkles size={18} /> Reveal Dossier (Free)
+                     <Sparkles size={18} /> Start Free Account
                    </button>
                  </SignUpButton>
                </div>
@@ -244,7 +247,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
              </div>
 
              <button onClick={() => setShowDemoModal(false)} className="mt-6 text-xs font-medium text-slate-400 hover:text-slate-600 underline">
-               Go Back
+               Back to Demo
              </button>
           </div>
         </div>
@@ -301,7 +304,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
                     <Zap size={16} className="text-brand-600 fill-brand-600" />
                     <span className="text-xs font-bold text-brand-700 uppercase tracking-tight">
-                    Try For Free
+                    {demoCredits} Demo Searches Left
                     </span>
                 </div>
             ) : (
@@ -334,7 +337,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       </div>
 
-      {/* 🚀 SETTINGS BOX (Hidden in Demo) */}
+      {/* 🚀 SETTINGS BOX */}
       {!isDemoMode && (
           <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4">
               <div className="bg-brand-600 p-2 rounded-lg text-white">
