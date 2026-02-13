@@ -158,6 +158,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       if (!response.ok) {
         if (response.status === 403) {
             const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
+            // 👇 UPDATED $97 LINK
             if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03';
         } else {
             alert(data.error || "Analysis failed.");
@@ -328,6 +329,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     
                     {!isPro && (
                         <button 
+                            // 👇 UPDATED $97 LINK
                             onClick={() => window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03'}
                             className="bg-brand-600 hover:bg-brand-500 text-white p-2 rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 text-xs font-bold px-3"
                         >
@@ -406,12 +408,28 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
             {dossier && (
                 <div className="space-y-6 animate-fade-in-up">
                     <div className="flex justify-end gap-3 no-print">
-                         {/* 🖨️ PRINT BUTTON */}
+                         
+                         {/* 🔒 LOCKED PDF BUTTON FOR FREE USERS */}
                         <button 
-                          onClick={() => handlePrint()} 
-                          className="bg-slate-100 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold hover:bg-slate-200 flex items-center gap-2"
+                          onClick={() => {
+                            if (isPro) {
+                              handlePrint();
+                            } else {
+                              if(window.confirm("Exporting to PDF is a Pro Feature.\n\nUpgrade to Pro Agent to unlock unlimited exports?")) {
+                                window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03';
+                              }
+                            }
+                          }} 
+                          className={`
+                            px-4 py-2 rounded-xl font-bold flex items-center gap-2 border transition-all
+                            ${isPro 
+                              ? "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200 cursor-pointer" 
+                              : "bg-slate-50 border-slate-100 text-slate-400 cursor-not-allowed opacity-70 hover:opacity-100"
+                            }
+                          `}
                         >
-                           <Printer size={16} /> Save PDF
+                           {isPro ? <Printer size={16} /> : <Lock size={14} />} 
+                           {isPro ? "Save PDF" : "Unlock PDF"}
                         </button>
                         
                         <button onClick={handleSaveLead} disabled={saving || saved} className="bg-brand-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-brand-500 flex items-center gap-2 shadow-lg shadow-brand-500/20">
@@ -420,7 +438,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     </div>
 
                     <div ref={componentRef} className="print-container">
-                      {/* HEADER FOR PDF ONLY (Optional branding) */}
+                      {/* HEADER FOR PDF ONLY */}
                       <div className="hidden print:block mb-8 border-b pb-4">
                         <h1 className="text-3xl font-black text-slate-900">{name}</h1>
                         <p className="text-slate-500">{role} at {company}</p>
