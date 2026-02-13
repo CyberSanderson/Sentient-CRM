@@ -489,7 +489,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                             <Mail size={20} />
                             <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
                           </div>
-                          <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap print:text-black">{renderSafe(dossier.emailDraft)}</div>
+                          <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap print:text-black">
+  {renderSafe(dossier.emailDraft)}
+  
+  {/* 👇 AUTOMATIC SIGNATURE BLOCK */}
+  {'\n\n'}
+  Best,
+  {'\n'}
+  {user?.fullName || "Sentient User"}
+  {'\n'}
+  <span className="font-bold">{userStats.businessName}</span>
+</div>
                       </div>
                     </div>
                 </div>
