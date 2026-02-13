@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, Shield, Zap, CreditCard, Lock
+  Target, MessageCircle, Mail, Shield, Zap, CreditCard, Lock, CheckCircle2
 } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
-// 👇 Added SignInButton and SignUpButton imports
 import { useAuth, useUser, SignInButton, SignUpButton } from '@clerk/clerk-react'; 
 
 // 🛡️ HELPER 1: Handle Lists Safely
@@ -91,7 +90,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   }, [isAdmin]);
 
   const giftCredits = async (userId: string) => {
-    if(!window.confirm("Gift 100 Credits & Reset Usage?")) return;
+    if(!window.confirm("Gift Pro Plan (Unlimited)?")) return;
     try {
         const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, { usageCount: 0, plan: 'pro' }); 
@@ -110,19 +109,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
 
     // A. Demo Mode Logic
     if (isDemoMode) {
-      // Logic: Fake the loading for 1.5s, then show the Login Modal
       await new Promise(r => setTimeout(r, 1500));
-      
-      // If they have credits, we pretend to use one (to show the mechanic), 
-      // but we ALWAYS show the modal because the demo doesn't actually hit the AI.
       if (demoCredits > 0) {
         const newCredits = demoCredits - 1;
         setDemoCredits(newCredits);
         localStorage.setItem('sentient_demo_credits', newCredits.toString());
       }
-      
       setLoading(false);
-      setShowDemoModal(true); // 👈 Trigger the modal instead of alert
+      setShowDemoModal(true);
       return;
     }
 
@@ -159,7 +153,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       if (!response.ok) {
         if (response.status === 403) {
             const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
-            if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01';
+            // 👇 UPDATED TO $97 LINK
+            if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03';
         } else {
             alert(data.error || "Analysis failed.");
         }
@@ -206,8 +201,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     finally { setSaving(false); }
   };
 
+  // 🏦 PRICING LOGIC
   const isPro = userStats.plan === 'pro' || userStats.plan === 'premium' || isAdmin;
-  const limit = isPro ? 100 : 3;
+  // If Pro, internal limit is 1000 (basically infinite). If Free, limit is 3.
+  const limit = isPro ? 1000 : 3; 
   const creditsLeft = Math.max(0, limit - (userStats.usageCount || 0));
 
   return (
@@ -217,18 +214,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       {showDemoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-slate-100 relative overflow-hidden">
-             {/* Background Decoration */}
              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 to-indigo-600" />
-             
              <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                 <Lock className="text-brand-600" size={32} />
              </div>
-             
              <h2 className="text-2xl font-black text-slate-900 mb-2">Unlock Full Analysis</h2>
              <p className="text-slate-500 mb-8 leading-relaxed">
                You've seen the preview. Create a <span className="font-bold text-slate-700">free account</span> to run live, deep-dive research on real prospects immediately.
              </p>
-             
              <div className="flex flex-col gap-3">
                <div className="w-full">
                  <SignUpButton mode="modal">
@@ -245,7 +238,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                   </SignInButton>
                </div>
              </div>
-
              <button onClick={() => setShowDemoModal(false)} className="mt-6 text-xs font-medium text-slate-400 hover:text-slate-600 underline">
                Back to Demo
              </button>
@@ -311,16 +303,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-xl border border-slate-100">
                     <div className="text-right px-2">
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {isPro ? 'Pro Plan' : 'Free Plan'}
+                            {isPro ? 'Pro Agent' : 'Free Researcher'}
                         </div>
-                        <div className={`text-sm font-black ${creditsLeft === 0 ? 'text-red-500' : 'text-slate-700'}`}>
-                            {creditsLeft} / {limit} Credits Left
-                        </div>
+                        
+                        {/* 🌟 LOGIC: If Pro, show UNLIMITED. If Free, show X/3 */}
+                        {isPro ? (
+                           <div className="text-sm font-black text-brand-600 flex items-center justify-end gap-1">
+                              Unlimited Access <Zap size={12} className="fill-brand-600" />
+                           </div>
+                        ) : (
+                           <div className={`text-sm font-black ${creditsLeft === 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                              {creditsLeft} / {limit} Credits Left
+                           </div>
+                        )}
                     </div>
                     
                     {!isPro && (
                         <button 
-                            onClick={() => window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01'}
+                            // 👇 $97 STRIPE LINK
+                            onClick={() => window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03'}
                             className="bg-brand-600 hover:bg-brand-500 text-white p-2 rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 text-xs font-bold px-3"
                         >
                             <CreditCard size={14} /> Upgrade
@@ -328,8 +329,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     )}
                     
                     {isPro && (
-                        <div className="bg-brand-100 text-brand-700 p-2 rounded-lg">
-                            <Shield size={18} className="fill-brand-200" />
+                        <div className="bg-amber-100 text-amber-600 p-2 rounded-lg border border-amber-200">
+                            <CheckCircle2 size={18} />
                         </div>
                     )}
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Bot, Check, Star, ArrowRight, Zap, Shield, BarChart3, 
-  Globe, Menu, X, BrainCircuit, LayoutGrid, Search, UserCheck, MessageCircle 
+  Globe, Menu, X, BrainCircuit, LayoutGrid, Search, UserCheck, MessageCircle, Users 
 } from 'lucide-react';
 import { TRUSTED_COMPANIES } from '../constants';
 import { View } from '../types';
@@ -89,8 +89,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
           
           {/* ⭐ BADGE & STARS CONTAINER */}
           <div className="flex flex-col items-center gap-4 mb-8 animate-fade-in-up">
-            
-            {/* 1. The "Live" Badge with Pulsing Dot */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-brand-200 text-brand-700 text-xs font-bold shadow-sm cursor-default">
                <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
@@ -99,14 +97,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
                <span>Sentient AI Engine Live</span>
             </div>
 
-            {/* 2. The 5 Stars Social Proof */}
             <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-3 py-1 rounded-full border border-slate-100">
                 <div className="flex gap-0.5">
                     {[...Array(5)].map((_, i) => <Star key={i} size={14} className="fill-amber-400 text-amber-400" />)}
                 </div>
                 <span className="text-slate-600 text-xs font-medium border-l border-slate-200 pl-2 ml-1">Rated 4.9/5 by 500+ Sales Teams</span>
             </div>
-            
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-slate-900 tracking-tighter mb-8 leading-[1.1] animate-fade-in-up delay-100">
@@ -142,12 +138,9 @@ const LandingPage: React.FC<LandingPageProps> = ({
       {/* 4. THE VISUAL WORKFLOW */}
       <section className="relative w-full border-y border-slate-200 bg-slate-50/50 overflow-hidden py-10 md:py-0">
          <div className="max-w-7xl mx-auto relative h-[500px] flex items-center justify-center">
-            {/* LABEL */}
             <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 bg-white/80 backdrop-blur border border-slate-200 px-4 py-1 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-widest shadow-sm">
                 How It Works
             </div>
-            
-            {/* THE NEW "LITERAL" COMPONENT */}
             <div className="w-full h-full scale-[0.7] md:scale-100 origin-center">
                 <HeroVisual />
             </div>
@@ -161,10 +154,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">The "Unfair Advantage"</h2>
             <p className="text-xl text-slate-500 max-w-2xl mx-auto">Most reps spend 30 minutes researching one lead. You do it in 10 seconds.</p>
           </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* Feature 1 */}
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-brand-500/5 transition-all duration-300 group">
               <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center text-brand-600 mb-8 group-hover:scale-110 transition-transform duration-300">
                 <BrainCircuit size={28} />
@@ -174,8 +164,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 Is your prospect a Driver, a Visionary, or a Skeptic? Our AI analyzes their digital footprint to tell you exactly <b>how to pitch them.</b>
               </p>
             </div>
-
-            {/* Feature 2 */}
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group">
               <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-8 group-hover:scale-110 transition-transform duration-300">
                 <MessageCircle size={28} />
@@ -185,8 +173,6 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 Never write "Just checking in" again. We generate hyper-specific openers based on their recent news, posts, and company filings.
               </p>
             </div>
-
-            {/* Feature 3 */}
             <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300 group">
               <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 mb-8 group-hover:scale-110 transition-transform duration-300">
                 <UserCheck size={28} />
@@ -196,71 +182,100 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 Get a one-page cheat sheet on every prospect before the meeting. Know their background, their pains, and their goals instantly.
               </p>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* 6. PRICING SECTION */}
+      {/* 6. PRICING SECTION - 3 COLUMNS */}
       <section id="pricing" className="py-32 bg-slate-50 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">Return on Investment? Instant.</h2>
-            <p className="text-xl text-slate-500">One closed deal pays for this software for a lifetime.</p>
+            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">Institutional-Grade Research. <br/><span className="text-brand-600">Accessible to Everyone.</span></h2>
+            <p className="text-xl text-slate-500 max-w-2xl mx-auto mt-4">One closed deal pays for this software for a lifetime.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             
-            {/* FREE CARD */}
-            <div className="p-10 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col">
-              <div className="mb-8">
+            {/* 1. FREE TIER ($0) */}
+            <div className="p-8 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col">
+              <div className="mb-6">
                 <h3 className="font-bold text-slate-900 text-2xl mb-2">Researcher</h3>
                 <div className="flex items-baseline gap-1">
                     <div className="text-4xl font-bold text-slate-900">$0</div>
                     <span className="text-slate-500 font-medium">/mo</span>
                 </div>
-                <p className="text-slate-500 mt-4">For testing the capabilities.</p>
+                <p className="text-slate-500 mt-4 text-sm">Perfect for testing the engine.</p>
               </div>
               
-              <ul className="space-y-4 mb-10 text-slate-600 flex-1">
-                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={14} /></div> 3 Deep-Dive Dossiers / Day</li>
-                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={14} /></div> Basic Personality Scoring</li>
-                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={14} /></div> Standard Email Drafts</li>
+              <ul className="space-y-3 mb-8 text-slate-600 flex-1 text-sm">
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> 3 Deep-Dives / Day</li>
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> Basic Personality Scoring</li>
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> Standard Email Drafts</li>
               </ul>
               
-              <button onClick={onSignupClick} className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all">
+              <button 
+                onClick={onSignupClick} 
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all"
+              >
                 Start Free
               </button>
             </div>
 
-            {/* PRO CARD */}
-            <div className="relative p-10 rounded-3xl border-2 border-brand-500 bg-white shadow-xl shadow-brand-500/5 flex flex-col">
-              <div className="absolute top-0 right-0 bg-brand-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl rounded-tr-xl tracking-wide uppercase">
-                Best Value
+            {/* 2. PRO AGENT ($97) - THE WINNER */}
+            <div className="relative p-8 rounded-3xl border-2 border-brand-500 bg-white shadow-xl shadow-brand-500/10 flex flex-col transform md:-translate-y-4 transition-all duration-300 z-10">
+              <div className="absolute top-0 inset-x-0 -mt-3 flex justify-center">
+                <div className="bg-brand-500 text-white text-xs font-bold px-4 py-1 rounded-full tracking-wide uppercase shadow-sm">
+                  Most Popular
+                </div>
               </div>
               
-              <div className="mb-8">
-                <h3 className="font-bold text-brand-700 text-2xl mb-2">Closer</h3>
-                <div className="flex items-baseline gap-2">
-                    <div className="text-4xl font-bold text-slate-900">$29</div>
+              <div className="mb-6 mt-2">
+                <h3 className="font-bold text-brand-700 text-2xl mb-2">Pro Agent</h3>
+                <div className="flex items-baseline gap-1">
+                    <div className="text-4xl font-bold text-slate-900">$97</div>
                     <span className="text-slate-500 font-medium">/mo</span>
-                    <span className="text-lg text-slate-400 line-through decoration-slate-400">$49</span>
                 </div>
-                <p className="text-slate-500 mt-4">For high-volume outreach.</p>
+                <p className="text-slate-500 mt-4 text-sm">For brokers dominating their market.</p>
               </div>
 
-              <ul className="space-y-4 mb-10 text-slate-700 flex-1">
-                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={14} /></div> <b>100</b> Deep-Dive Dossiers / Day</li>
-                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={14} /></div> Advanced Psychological Profiling</li>
-                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={14} /></div> "Buying Signal" Alerts</li>
-                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={14} /></div> Priority Support</li>
+              <ul className="space-y-3 mb-8 text-slate-700 flex-1 text-sm">
+                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={12} /></div> <b>Unlimited</b> Deep-Dive Dossiers</li>
+                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={12} /></div> Psychological Profiling</li>
+                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={12} /></div> Export to PDF & Email</li>
+                <li className="flex items-center gap-3"><div className="bg-brand-100 text-brand-600 p-1 rounded-full"><Check size={12} /></div> Priority Support</li>
               </ul>
 
               <button 
-                onClick={() => window.location.href = 'https://buy.stripe.com/28E9ASepHf7bdrEbX6dAk01'} 
-                className="w-full py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-brand-500/20 hover:shadow-brand-500/30"
+                onClick={() => window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03'} 
+                className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-brand-500/20 hover:shadow-brand-500/30"
               >
-                Claim Founder's Rate
+                Get Started
+              </button>
+            </div>
+
+            {/* 3. TEAM ($297) */}
+            <div className="p-8 rounded-3xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col">
+              <div className="mb-6">
+                <h3 className="font-bold text-slate-900 text-2xl mb-2">Team</h3>
+                <div className="flex items-baseline gap-1">
+                    <div className="text-4xl font-bold text-slate-900">$297</div>
+                    <span className="text-slate-500 font-medium">/mo</span>
+                </div>
+                <p className="text-slate-500 mt-4 text-sm">For Senior Brokers & Associates.</p>
+              </div>
+              
+              <ul className="space-y-3 mb-8 text-slate-600 flex-1 text-sm">
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Users size={12} /></div> <b>3 User Seats</b> Included</li>
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> Shared Team Dossiers</li>
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> Collaborative Workspace</li>
+                <li className="flex items-center gap-3"><div className="bg-slate-100 p-1 rounded-full"><Check size={12} /></div> Dedicated Account Manager</li>
+              </ul>
+              
+              <button 
+                onClick={() => window.location.href = 'https://buy.stripe.com/00waEW2GZ9MR9bo4uEdAk02'} 
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold rounded-xl transition-all"
+              >
+                Get Team Access
               </button>
             </div>
 
