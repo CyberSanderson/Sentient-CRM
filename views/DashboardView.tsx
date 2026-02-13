@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, Building2, Briefcase, Sparkles, Loader2, BrainCircuit, 
-  Target, MessageCircle, Mail, Shield, Zap, CreditCard, Lock, CheckCircle2
+  Target, MessageCircle, Mail, Shield, Zap, CreditCard, Lock, CheckCircle2, 
+  Download, Printer
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot, getDoc } from 'firebase/firestore'; 
+import { collection, addDoc, doc, updateDoc, setDoc, getDocs, onSnapshot } from 'firebase/firestore'; 
 import { signInWithCredential, OAuthProvider } from 'firebase/auth'; 
 import { db, auth } from '../lib/firebase'; 
 import { Lead, Dossier } from '../types'; 
 import { useAuth, useUser, SignInButton, SignUpButton } from '@clerk/clerk-react'; 
+import { useReactToPrint } from 'react-to-print';
 
 // 🛡️ HELPER 1: Handle Lists Safely
 const safeList = (data: any): string[] => {
@@ -37,13 +39,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const { getToken, isLoaded: authLoaded } = useAuth();
   const { user } = useUser();
 
+  // 🖨️ PRINT REF
+  const componentRef = useRef<HTMLDivElement>(null);
+
+  // 🖨️ PRINT FUNCTION
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Sentient_Dossier`,
+  });
+
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
-  // 🟢 STATE FOR CREDIT TRACKING
   const [userStats, setUserStats] = useState({ plan: 'free', usageCount: 0, lastUsageDate: '', businessName: '' });
   
-  // 🔒 YOUR ADMIN EMAIL
   const isAdmin = user?.primaryEmailAddress?.emailAddress === "lifeinnovations7@gmail.com"; 
 
   const [name, setName] = useState('');
@@ -54,9 +63,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   
-  // 🆕 DEMO MODAL STATE
   const [showDemoModal, setShowDemoModal] = useState(false);
-
   const [demoCredits, setDemoCredits] = useState(() => {
     const saved = localStorage.getItem('sentient_demo_credits');
     return saved !== null ? parseInt(saved) : 2; 
@@ -107,7 +114,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     setDossier(null);
     setSaved(false);
 
-    // A. Demo Mode Logic
     if (isDemoMode) {
       await new Promise(r => setTimeout(r, 1500));
       if (demoCredits > 0) {
@@ -120,7 +126,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       return;
     }
 
-    // B. Live User Logic
     try {
       if (!auth) throw new Error("Firebase Auth not initialized");
 
@@ -153,7 +158,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       if (!response.ok) {
         if (response.status === 403) {
             const wantToUpgrade = window.confirm(data.error || "Daily limit reached.");
-            // 👇 UPDATED TO $97 LINK
             if (wantToUpgrade) window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03';
         } else {
             alert(data.error || "Analysis failed.");
@@ -201,18 +205,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
     finally { setSaving(false); }
   };
 
-  // 🏦 PRICING LOGIC
   const isPro = userStats.plan === 'pro' || userStats.plan === 'premium' || isAdmin;
-  // If Pro, internal limit is 1000 (basically infinite). If Free, limit is 3.
   const limit = isPro ? 1000 : 3; 
   const creditsLeft = Math.max(0, limit - (userStats.usageCount || 0));
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
-      {/* 🛑 DEMO CONVERSION MODAL */}
+      {/* 🖨️ PRINT STYLES */}
+      <style>{`
+        @media print {
+          body { background: white; }
+          .no-print { display: none !important; }
+          .print-container { padding: 40px !important; border: none !important; box-shadow: none !important; }
+        }
+      `}</style>
+
+      {/* DEMO MODAL */}
       {showDemoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in no-print">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center border border-slate-100 relative overflow-hidden">
              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 to-indigo-600" />
              <div className="w-16 h-16 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -245,9 +256,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       )}
 
-      {/* 🛡️ GOD MODE PANEL */}
+      {/* ADMIN PANEL */}
       {isAdmin && (
-        <div className="bg-slate-900 rounded-2xl p-6 border-2 border-red-900 shadow-2xl mb-8">
+        <div className="bg-slate-900 rounded-2xl p-6 border-2 border-red-900 shadow-2xl mb-8 no-print">
           <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => setShowAdminPanel(!showAdminPanel)}>
             <div className="flex items-center gap-3">
               <Shield className="text-red-500" size={24} />
@@ -283,14 +294,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       )}
 
-      {/* HEADER WITH REAL-TIME CREDITS */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm gap-4 no-print">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Research Center</h1>
           <p className="text-slate-500 text-sm">Real-time intelligence via Sentient AI Engine.</p>
         </div>
         
-        {/* 🟢 DYNAMIC CREDIT DISPLAY */}
         <div className="flex items-center gap-3">
             {isDemoMode ? (
                 <div className="flex items-center gap-2 px-4 py-2 bg-brand-50 border border-brand-100 rounded-xl">
@@ -305,8 +315,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             {isPro ? 'Pro Agent' : 'Free Researcher'}
                         </div>
-                        
-                        {/* 🌟 LOGIC: If Pro, show UNLIMITED. If Free, show X/3 */}
                         {isPro ? (
                            <div className="text-sm font-black text-brand-600 flex items-center justify-end gap-1">
                               Unlimited Access <Zap size={12} className="fill-brand-600" />
@@ -320,7 +328,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                     
                     {!isPro && (
                         <button 
-                            // 👇 $97 STRIPE LINK
                             onClick={() => window.location.href = 'https://buy.stripe.com/bJeaEW6Xf2kp5Zc3qAdAk03'}
                             className="bg-brand-600 hover:bg-brand-500 text-white p-2 rounded-lg shadow-lg shadow-brand-500/20 transition-all flex items-center gap-2 text-xs font-bold px-3"
                         >
@@ -338,9 +345,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
         </div>
       </div>
 
-      {/* 🚀 SETTINGS BOX */}
+      {/* SETTINGS BOX */}
       {!isDemoMode && (
-          <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4">
+          <div className="bg-brand-50 border border-brand-100 p-4 rounded-2xl flex items-center gap-4 no-print">
               <div className="bg-brand-600 p-2 rounded-lg text-white">
                   <Building2 size={20} />
               </div>
@@ -361,7 +368,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
+        
+        {/* FORM SIDEBAR (Hidden when printing) */}
+        <div className="lg:col-span-1 no-print">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
             <form onSubmit={handleAnalyze} className="space-y-4">
               <div className="space-y-3">
@@ -378,6 +387,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
           </div>
         </div>
 
+        {/* MAIN DOSSIER AREA */}
         <div className="lg:col-span-2">
             {!dossier && !loading && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 min-h-[400px]">
@@ -391,60 +401,78 @@ const DashboardView: React.FC<DashboardViewProps> = ({ leads, isDemoMode }) => {
                 <p className="font-bold text-lg">Scanning the live web...</p>
             </div>
             )}
+            
+            {/* 🛡️ THIS IS THE PART THAT GETS PRINTED */}
             {dossier && (
                 <div className="space-y-6 animate-fade-in-up">
-                    <div className="flex justify-end">
-                        <button onClick={handleSaveLead} disabled={saving || saved} className="bg-white border px-6 py-2 rounded-xl font-bold hover:bg-slate-50">
+                    <div className="flex justify-end gap-3 no-print">
+                         {/* 🖨️ PRINT BUTTON */}
+                        <button 
+                          onClick={() => handlePrint()} 
+                          className="bg-slate-100 border border-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold hover:bg-slate-200 flex items-center gap-2"
+                        >
+                           <Printer size={16} /> Save PDF
+                        </button>
+                        
+                        <button onClick={handleSaveLead} disabled={saving || saved} className="bg-brand-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-brand-500 flex items-center gap-2 shadow-lg shadow-brand-500/20">
                          {saved ? 'Saved' : 'Save Lead'}
                         </button>
                     </div>
 
-                    {/* PERSONALITY SECTION */}
-                    <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3 text-brand-600">
-                          <BrainCircuit size={20} />
-                          <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
-                        </div>
-                        <p className="text-slate-700">{renderSafe(dossier.personality)}</p>
-                    </div>
+                    <div ref={componentRef} className="print-container">
+                      {/* HEADER FOR PDF ONLY (Optional branding) */}
+                      <div className="hidden print:block mb-8 border-b pb-4">
+                        <h1 className="text-3xl font-black text-slate-900">{name}</h1>
+                        <p className="text-slate-500">{role} at {company}</p>
+                      </div>
 
-                    {/* PAIN POINTS */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100">
-                             <div className="flex items-center gap-2 mb-4 text-red-600">
-                                <Target size={20} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">Pain Points</h4>
-                             </div>
-                             <ul className="space-y-3">
-                                {safeList(dossier.painPoints).map((p: string, i: number) => (
-                                  <li key={i} className="flex gap-2 text-sm text-slate-700">
-                                    <span className="text-red-400 mt-1">•</span>{p}
-                                  </li>
-                                ))}
-                             </ul>
-                        </div>
-                        <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-                             <div className="flex items-center gap-2 mb-4 text-blue-600">
-                                <MessageCircle size={20} />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest">Ice Breakers</h4>
-                             </div>
-                             <ul className="space-y-3">
-                                {safeList(dossier.iceBreakers).map((p: string, i: number) => (
-                                  <li key={i} className="flex gap-2 text-sm text-slate-700">
-                                    <span className="text-blue-400 mt-1">•</span>{p}
-                                  </li>
-                                ))}
-                             </ul>
-                        </div>
-                    </div>
+                      {/* PERSONALITY SECTION */}
+                      <div className="bg-white p-6 rounded-2xl border-l-4 border-brand-500 shadow-sm mb-6 print:shadow-none print:border">
+                          <div className="flex items-center gap-2 mb-3 text-brand-600">
+                            <BrainCircuit size={20} />
+                            <h4 className="text-[10px] font-black uppercase tracking-widest">Psychological Profile</h4>
+                          </div>
+                          <p className="text-slate-700 leading-relaxed">{renderSafe(dossier.personality)}</p>
+                      </div>
 
-                    {/* EMAIL DRAFT */}
-                    <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
-                        <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4">
-                           <Mail size={20} />
-                           <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
-                        </div>
-                        <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap">{renderSafe(dossier.emailDraft)}</div>
+                      {/* PAIN POINTS */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                          <div className="bg-red-50/50 p-6 rounded-2xl border border-red-100 print:bg-white print:border">
+                              <div className="flex items-center gap-2 mb-4 text-red-600">
+                                  <Target size={20} />
+                                  <h4 className="text-[10px] font-black uppercase tracking-widest">Pain Points</h4>
+                              </div>
+                              <ul className="space-y-3">
+                                  {safeList(dossier.painPoints).map((p: string, i: number) => (
+                                    <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                      <span className="text-red-400 mt-1">•</span>{p}
+                                    </li>
+                                  ))}
+                              </ul>
+                          </div>
+                          <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 print:bg-white print:border">
+                              <div className="flex items-center gap-2 mb-4 text-blue-600">
+                                  <MessageCircle size={20} />
+                                  <h4 className="text-[10px] font-black uppercase tracking-widest">Ice Breakers</h4>
+                              </div>
+                              <ul className="space-y-3">
+                                  {safeList(dossier.iceBreakers).map((p: string, i: number) => (
+                                    <li key={i} className="flex gap-2 text-sm text-slate-700">
+                                      <span className="text-blue-400 mt-1">•</span>{p}
+                                    </li>
+                                  ))}
+                              </ul>
+                          </div>
+                      </div>
+
+                      {/* EMAIL DRAFT */}
+                      <div className="bg-slate-900 p-8 rounded-2xl shadow-xl print:bg-white print:border print:text-black print:shadow-none">
+                          <div className="flex items-center gap-2 mb-6 text-slate-400 border-b border-slate-800 pb-4 print:text-black print:border-slate-200">
+                            <Mail size={20} />
+                            <h4 className="text-[10px] font-black uppercase tracking-widest">Draft Email</h4>
+                          </div>
+                          <div className="text-slate-300 font-mono text-sm whitespace-pre-wrap print:text-black">{renderSafe(dossier.emailDraft)}</div>
+                      </div>
                     </div>
                 </div>
             )}
